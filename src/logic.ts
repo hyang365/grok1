@@ -285,13 +285,17 @@ export function heatColor(count: number, max: number, dark: boolean): number {
   return mix(low, high, t);
 }
 
-/** Map shade for an overall rating from 1 (lightest blue) to 5 (darkest). */
+/**
+ * Map shade for an overall rating. Five distinct steps (1 pale, 5 deep navy) so a 4 and a 5
+ * look clearly different; values in between blend between the two nearest steps.
+ */
+const RATING_STEPS_LIGHT = [0xe4eefc, 0xb6d0f4, 0x78a5e2, 0x3a70c4, 0x0d3a8a];
+const RATING_STEPS_DARK = [0x1f2f45, 0x284d80, 0x3a6fb8, 0x6d9be0, 0xb3d1ff];
 export function ratingColor(score: number, dark: boolean): number {
-  const t = Math.max(0, Math.min(1, (score - 1) / 4));
-  // Soft range so the map stays readable: pale blue at 1, medium blue at 5.
-  const low = dark ? 0x22344c : 0xdbe8fa;
-  const high = dark ? 0x5f8fd0 : 0x5b8bd0;
-  return mix(low, high, t);
+  const steps = dark ? RATING_STEPS_DARK : RATING_STEPS_LIGHT;
+  const x = Math.max(0, Math.min(4, score - 1));
+  const i = Math.min(3, Math.floor(x));
+  return mix(steps[i], steps[i + 1], x - i);
 }
 
 function mix(a: number, b: number, t: number): number {

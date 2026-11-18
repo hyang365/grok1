@@ -739,5 +739,5 @@ details.inside-wrap .inside { margin-bottom: 8px; }
 .legend-swatch { width: 12px; height: 10px; border-radius: 2px; background: #f3f3f3; border: 1px solid var(--color-border); display: inline-block; }
 :root[data-theme="dark"] .legend-swatch, .dark .legend-swatch { background: #2a2a2a; }
 .legend-swatch.has-programs { background: #e3e7ed; }
-.legend-bar { background: linear-gradient(90deg, #dbe8fa, #5b8bd0); }
-:root[data-theme="dark"] .legend-bar { background: linear-gradient(90deg, #22344c, #5f8fd0); }
+.legend-bar { background: linear-gradient(90deg, #e4eefc, #b6d0f4, #78a5e2, #3a70c4, #0d3a8a); }
+:root[data-theme="dark"] .legend-bar { background: linear-gradient(90deg, #1f2f45, #284d80, #3a6fb8, #6d9be0, #b3d1ff); }
