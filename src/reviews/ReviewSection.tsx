@@ -123,9 +123,16 @@ export function ReviewSection({
             onDone={() => setOpen(false)}
           />
         ) : (
-          <button className="primary rv-write" type="button" onClick={() => setOpen(true)}>
-            {mine ? "Edit your review" : "Write a review"}
-          </button>
+          <>
+            {mine && !mine.body.trim() ? (
+              <p className="fine rv-mine">
+                Your rating: {keys.map((k) => `${label(k)} ${mine.ratings[k] ?? "—"}`).join(" · ")}
+              </p>
+            ) : null}
+            <button className="primary rv-write" type="button" onClick={() => setOpen(true)}>
+              {mine ? (mine.body.trim() ? "Edit your review" : "Edit your rating") : "Rate or review"}
+            </button>
+          </>
         )
       ) : (
         <SignInBox />
@@ -202,8 +209,9 @@ function ReviewForm({
       className="rv-form"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (body.trim().length < 20) {
-          setError("Write at least a couple of sentences so it helps the next person.");
+        const text = body.trim();
+        if (text.length > 0 && text.length < 20) {
+          setError("Add a bit more (20+ characters), or clear the box to post just your rating.");
           return;
         }
         setBusy(true);
@@ -234,11 +242,11 @@ function ReviewForm({
           </label>
         ))}
       </div>
-      <textarea rows={4} value={body} maxLength={4000} onChange={(e) => { setBody(e.target.value); setError(""); }} placeholder={prompt} aria-label="Review" />
-      <p className="fine">Posted anonymously. No name, email, college or class year is shown, and other students can't see who wrote it.</p>
+      <textarea rows={4} value={body} maxLength={4000} onChange={(e) => { setBody(e.target.value); setError(""); }} placeholder={`Optional. ${prompt}`} aria-label="Written review (optional)" />
+      <p className="fine">The written part is optional: leave it blank to post just your rating. Everything is anonymous; no name, email, college or class year is shown, and other students can't see who posted it.</p>
       {error ? <p className="form-error">{error}</p> : null}
       <div className="plan-actions">
-        <button className="primary" type="submit" disabled={busy}>{busy ? "Posting…" : "Post review"}</button>
+        <button className="primary" type="submit" disabled={busy}>{busy ? "Posting…" : body.trim() ? "Post review" : "Post rating"}</button>
         <button className="textlink" type="button" onClick={onDone}>Cancel</button>
       </div>
     </form>
