@@ -324,7 +324,7 @@ export function PlacePanel({ place }: { place: Place }) {
         </div>
         <p className="fine score-basis">
           {ratingCount(place.id)
-            ? `Based on ${ratingCount(place.id)} ${ratingCount(place.id) === 1 ? "review" : "reviews"}${children.length ? ` of ${place.name} and its cities and destinations` : ""}.`
+            ? `Based on ${ratingCount(place.id)} ${ratingCount(place.id) === 1 ? "rating" : "ratings"}${children.length ? ` of ${place.name} and its cities and destinations` : ""}.`
             : children.length
               ? `No reviews yet. Reviews of ${place.name} and its cities and destinations all count toward this rating.`
               : "No reviews yet."}

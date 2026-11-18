@@ -90,6 +90,8 @@ export function ReviewSection({
   const { reviews: all, session, loading, error, shared } = useReviewStore();
   const list = reviewsFor(all, targetType, targetId);
   const mine = session ? list.find((r) => r.userId === session.userId) : undefined;
+  const written = list.filter((r) => r.body.trim());
+  const ratingsOnly = list.length - written.length;
   const [open, setOpen] = useState(false);
 
   return (
@@ -103,7 +105,9 @@ export function ReviewSection({
         ))}
       </div>
       <p className="fine">
-        {list.length === 0 ? "No reviews yet." : `${list.length} ${list.length === 1 ? "review" : "reviews"} from Yale students.`}
+        {list.length === 0
+          ? "No reviews yet."
+          : `${written.length} ${written.length === 1 ? "review" : "reviews"}${ratingsOnly ? ` and ${ratingsOnly} ${ratingsOnly === 1 ? "rating" : "ratings"}` : ""} from Yale students.`}
         {!shared ? " Reviews are saved on this device only until the site's database is connected." : ""}
       </p>
       {error ? <p className="form-error">{error}</p> : null}
@@ -128,7 +132,7 @@ export function ReviewSection({
       )}
       {loading ? <p className="fine">Loading reviews…</p> : null}
       <ul className="rv-list">
-        {list.map((r) => (
+        {written.map((r) => (
           <li key={r.id}>
             <div className="rv-top">
               <strong>{session && r.userId === session.userId ? "You (shown as Anonymous)" : "Anonymous Yale student"}</strong>
