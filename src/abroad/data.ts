@@ -303,3 +303,5 @@ export function programsIn(iso: string, term?: "Spring" | "Fall" | "Summer"): Pr
 export function maxPerCountry(term: "Spring" | "Fall" | "Summer"): number {
   return Math.max(1, ...[...new Set(PROGRAMS.map((p) => p.iso))].map((iso) => programsIn(iso, term).length));
 }
+
+export const PROGRAM_BY_ID = new Map(PROGRAMS.map((p) => [p.id, p]));

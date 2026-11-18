@@ -59,3 +59,8 @@ alter table public.profiles add constraint profiles_avatar_url_check
 -- author is always 'Yale student'; clients can't read user_id or write the table directly.
 -- Writes go through save_review() / delete_review(); my_review_ids() returns only your own ids.
 -- (See the live project for the function bodies.)
+
+-- Migration "moderation_and_feedback": private.admins (moderator emails), is_admin(),
+-- admin_reports() / admin_remove_review() / admin_dismiss_reports(), and the feedback
+-- table (anyone can send; only admins can read or resolve; rate-limited).
+-- To add a moderator: insert into private.admins (email) values ('netid@yale.edu');

@@ -9,6 +9,7 @@ import { reviews as reviewApi, useReviewStore } from "../reviews/store";
 import { useFriends, useTripTable } from "../store";
 import type { ProfileTab, Trip } from "../types";
 import { initials, issueUrl } from "./ProfileMenu";
+import { Moderation, useIsAdmin } from "../admin/admin";
 import { countryOf, isPast, seasonFor } from "./trips";
 
 const TABS: { id: ProfileTab; label: string }[] = [
@@ -25,6 +26,8 @@ export function ProfileView() {
   const countries = new Set(past.map(countryOf).filter(Boolean));
   const mine = session ? reviews.filter((r) => r.userId === session.userId) : [];
   const me = useMe();
+  const admin = useIsAdmin();
+  const tabs = admin ? [...TABS, { id: "moderation" as ProfileTab, label: "Moderation" }] : TABS;
 
   return (
     <div className="pf-page">
@@ -60,7 +63,7 @@ export function ProfileView() {
         </dl>
       </header>
       <nav className="tabs pf-tabs" role="tablist">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={state.profileTab === t.id} className={state.profileTab === t.id ? "tab active" : "tab"} onClick={() => dispatch({ type: "openProfile", tab: t.id })}>
             {t.label}
           </button>
@@ -70,6 +73,7 @@ export function ProfileView() {
       {state.profileTab === "bucket" ? <Bucket /> : null}
       {state.profileTab === "reviews" ? <MyReviews /> : null}
       {state.profileTab === "settings" ? <Settings /> : null}
+      {state.profileTab === "moderation" && admin ? <Moderation /> : null}
     </div>
   );
 }

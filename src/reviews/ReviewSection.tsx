@@ -18,8 +18,7 @@ export function ScoreValue({ value }: { value: number | null }) {
 }
 
 export function SignInBox({ compact }: { compact?: boolean }) {
-  const { session, shared, google } = useReviewStore();
-  const [email, setEmail] = useState("");
+  const { session, shared } = useReviewStore();
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   if (!shared) return null;
@@ -33,7 +32,7 @@ export function SignInBox({ compact }: { compact?: boolean }) {
   }
   return (
     <div className={compact ? "rv-signin compact" : "rv-signin"}>
-      {google ? (
+      {/* Google is the only sign-in: email links need a mail sender we haven't set up. */}
       <button
         type="button"
         className="rv-google"
@@ -53,22 +52,6 @@ export function SignInBox({ compact }: { compact?: boolean }) {
         </svg>
         Continue with your Yale Google account
       </button>
-      ) : null}
-      <details className="rv-emailalt" open={!google}>
-        <summary>{google ? "No Yale Google account? Get a sign-in link by email" : "Sign in with a link sent to your Yale email"}</summary>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            const err = await reviews.signIn(email);
-            setBusy(false);
-            setMsg(err ?? "Check your Yale inbox for a sign-in link.");
-          }}
-        >
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="netid@yale.edu or first.last@yale.edu" aria-label="Yale email" />
-          <button className="primary" type="submit" disabled={busy}>Send link</button>
-        </form>
-      </details>
       {msg ? <p className="fine">{msg}</p> : <p className="fine">Only @yale.edu accounts can sign in. Reviews are completely anonymous.</p>}
     </div>
   );

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMe } from "../account/account";
+import { FeedbackDialog, useIsAdmin } from "../admin/admin";
 import { reviews as reviewApi, useReviewStore } from "../reviews/store";
 import { useTripTable } from "../store";
 import type { ProfileTab } from "../types";
@@ -30,8 +31,10 @@ export function initials(name: string) {
 
 export function ProfileMenu() {
   const { state, dispatch } = useTripTable();
-  const { reviews, session, shared, google } = useReviewStore();
+  const { reviews, session, shared } = useReviewStore();
   const me = useMe();
+  const admin = useIsAdmin();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -85,11 +88,10 @@ export function ProfileMenu() {
               className="pf-signin"
               onClick={() => {
                 setOpen(false);
-                if (google) void reviewApi.signInWithGoogle();
-                else go("settings");
+                void reviewApi.signInWithGoogle();
               }}
             >
-              <span>{google ? "Sign in with Yale Google" : "Sign in with Yale email"}</span>
+              <span>Sign in with Yale Google</span>
             </button>
           ) : null}
           <button type="button" role="menuitem" onClick={() => go("history")}>
@@ -141,18 +143,21 @@ export function ProfileMenu() {
               </button>
             ) : null
           ) : null}
-          <a role="menuitem" href={issueUrl("bug", state.view)} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
-            <span>Report a bug</span>
-            <small>↗</small>
-          </a>
-          <a role="menuitem" href={issueUrl("feature", state.view)} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
-            <span>Suggest a feature</span>
-            <small>↗</small>
-          </a>
-          <a role="menuitem" href={issueUrl("data", state.view)} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
-            <span>Fix missing or wrong info</span>
-            <small>↗</small>
-          </a>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              setFeedbackOpen(true);
+            }}
+          >
+            <span>Send feedback or report a bug</span>
+          </button>
+          {admin ? (
+            <button type="button" role="menuitem" onClick={() => go("moderation")}>
+              <span>Moderation</span>
+            </button>
+          ) : null}
           <a role="menuitem" href={`${REPO}#readme`} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
             <span>Help & about</span>
             <small>↗</small>
@@ -162,8 +167,10 @@ export function ProfileMenu() {
             <span>·</span>
             <a href={`${import.meta.env.BASE_URL}terms.html`}>Terms</a>
           </div>
+          <p className="pf-disclaimer">Made by Yale students. Not affiliated with or endorsed by Yale University.</p>
         </div>
       ) : null}
+      {feedbackOpen ? <FeedbackDialog onClose={() => setFeedbackOpen(false)} /> : null}
     </div>
   );
 }

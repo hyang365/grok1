@@ -150,7 +150,7 @@ function loadState(): State {
       bucket: Array.isArray(data.bucket)
         ? data.bucket.filter((b): b is BucketItem => Boolean(b && typeof b.targetId === "string" && (b.kind === "place" || b.kind === "program")))
         : [],
-      profileTab: data.profileTab && ["history", "bucket", "reviews", "settings"].includes(data.profileTab) ? data.profileTab : "history",
+      profileTab: data.profileTab && ["history", "bucket", "reviews", "settings", "moderation"].includes(data.profileTab) ? data.profileTab : "history",
       abroadIso: null,
       abroadProgramId: typeof data.abroadProgramId === "string" ? data.abroadProgramId : null,
     };

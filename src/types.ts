@@ -115,4 +115,4 @@ export type BucketItem = {
   done: boolean;
 };
 
-export type ProfileTab = "history" | "bucket" | "reviews" | "settings";
+export type ProfileTab = "history" | "bucket" | "reviews" | "settings" | "moderation";

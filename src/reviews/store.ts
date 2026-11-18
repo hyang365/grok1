@@ -166,6 +166,7 @@ export type Draft = Omit<Review, "id" | "userId" | "createdAt">;
 
 export const reviews = {
   clearAuthError: () => emit({ authError: null }),
+  refresh: () => refresh(),
   subscribe(fn: () => void) {
     listeners.add(fn);
     return () => {
