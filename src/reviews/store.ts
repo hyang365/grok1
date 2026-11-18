@@ -140,6 +140,8 @@ function init() {
     if (useLocal) return;
     const user = data.session?.user;
     emit({ session: user ? { userId: user.id, email: user.email ?? "" } : null });
+    // Reload once we know who you are, so your own reviews are marked as yours.
+    if (user) void refresh();
   });
   supabase.auth.onAuthStateChange((_event, session) => {
     if (useLocal) return;
