@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview",
-    "publish:fallback": "GITHUB_PAGES=true vite build && node scripts/publish-fallback.mjs"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@amcharts/amcharts5": "^5.13.5",
@@ -25,5 +24,6 @@
     "@vitejs/plugin-react": "^4.7.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
-  }
+  },
+  "description": "TripTable: where Yale students travel and study abroad, with anonymous ratings and trip planning."
 }

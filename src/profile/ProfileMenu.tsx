@@ -7,18 +7,6 @@ import type { ProfileTab } from "../types";
 import { isPast } from "./trips";
 import "./profile.css";
 
-const REPO = "https://github.com/hyang365/grok1";
-
-export function issueUrl(kind: "bug" | "feature" | "data", view: string): string {
-  const titles = { bug: "Bug: ", feature: "Idea: ", data: "Missing or wrong info: " };
-  const bodies = {
-    bug: `**What happened?**\n\n\n**What did you expect?**\n\n\n**Steps to reproduce**\n1. \n\n---\nPage: ${view}\nBrowser: ${navigator.userAgent}\nURL: ${location.href}`,
-    feature: `**What would you like TripTable to do?**\n\n\n**Why would it help?**\n\n`,
-    data: `**Which place, program or grant?**\n\n\n**What's missing or wrong? (a source link helps)**\n\n`,
-  };
-  const labels = { bug: "bug", feature: "enhancement", data: "data" };
-  return `${REPO}/issues/new?title=${encodeURIComponent(titles[kind])}&labels=${labels[kind]}&body=${encodeURIComponent(bodies[kind])}`;
-}
 
 export function initials(name: string) {
   return name
@@ -158,9 +146,8 @@ export function ProfileMenu() {
               <span>Moderation</span>
             </button>
           ) : null}
-          <a role="menuitem" href={`${REPO}#readme`} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
-            <span>Help & about</span>
-            <small>↗</small>
+          <a role="menuitem" href={`${import.meta.env.BASE_URL}about.html`} onClick={() => setOpen(false)}>
+            <span>About & help</span>
           </a>
           <div className="pf-legal">
             <a href={`${import.meta.env.BASE_URL}privacy.html`}>Privacy</a>

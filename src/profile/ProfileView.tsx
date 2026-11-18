@@ -8,8 +8,8 @@ import { AUTHOR_KEY, COLLEGES, SignInBox } from "../reviews/ReviewSection";
 import { reviews as reviewApi, useReviewStore } from "../reviews/store";
 import { useFriends, useTripTable } from "../store";
 import type { ProfileTab, Trip } from "../types";
-import { initials, issueUrl } from "./ProfileMenu";
-import { Moderation, useIsAdmin } from "../admin/admin";
+import { initials } from "./ProfileMenu";
+import { FeedbackDialog, Moderation, useIsAdmin } from "../admin/admin";
 import { countryOf, isPast, seasonFor } from "./trips";
 
 const TABS: { id: ProfileTab; label: string }[] = [
@@ -380,6 +380,7 @@ function Settings() {
   const { state, dispatch } = useTripTable();
   const { shared } = useReviewStore();
   const me = useMe();
+  const [feedback, setFeedback] = useState(false);
   const fs = useFlights();
   const saved = (() => {
     try {
@@ -465,17 +466,13 @@ function Settings() {
       </div>
       <div className="pf-card">
         <h3>Help us fix things</h3>
+        <p className="fine">Found a bug, have an idea, or spotted wrong info? It goes straight to the team.</p>
         <div className="plan-actions">
-          <a className="primary pf-link" href={issueUrl("bug", "profile")} target="_blank" rel="noreferrer">
-            Report a bug ↗
-          </a>
-          <a className="textlink" href={issueUrl("feature", "profile")} target="_blank" rel="noreferrer">
-            Suggest a feature ↗
-          </a>
-          <a className="textlink" href={issueUrl("data", "profile")} target="_blank" rel="noreferrer">
-            Fix missing or wrong info ↗
-          </a>
+          <button className="primary" type="button" onClick={() => setFeedback(true)}>
+            Send feedback
+          </button>
         </div>
+        {feedback ? <FeedbackDialog onClose={() => setFeedback(false)} /> : null}
       </div>
       <div className="pf-card">
         <h3>Your data</h3>
