@@ -1,0 +1,26 @@
+.rv { display: flex; flex-direction: column; gap: 10px; }
+.rv-scores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.rv-scores > div { border: 1px solid var(--color-border); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; }
+.rv-score { font-weight: 650; font-size: 16px; }
+.rv-score.none { color: var(--color-text-tertiary); font-weight: 400; }
+.rv-list { display: flex; flex-direction: column; gap: 8px; }
+.rv-list li { border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.rv-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.rv-actions { display: flex; gap: 10px; }
+.rv-write { width: fit-content; }
+.rv-form, .rv-signin { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--color-border); border-radius: 8px; padding: 12px; }
+.rv-signin { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.rv-signin input { flex: 1; min-width: 180px; }
+.rv-signin p { flex-basis: 100%; }
+.rv-signin.compact { border: 0; padding: 0; }
+.rv-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.rv-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--color-text-secondary); }
+.rv-form select, .rv-form textarea, .rv-signin input {
+  border: 1px solid var(--color-border-control);
+  border-radius: 8px;
+  background: var(--color-surface);
+  height: 32px;
+  padding: 0 6px;
+}
+.rv-form textarea { height: auto; padding: 8px; resize: vertical; width: 100%; }
+@media (max-width: 520px) { .rv-scores { grid-template-columns: repeat(2, 1fr); } }

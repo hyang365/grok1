@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TripTable</title>
+    <meta
+      name="description"
+      content="Anonymized Yale travel. See where students go, then plan the trip with friends."
+    />
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function () {
+        var entry = document.querySelector('script[type="module"]');
+        var preview = location.search.indexOf("pagespreview=1") !== -1;
+        if (!entry || entry.getAttribute("src") !== "/src/main.tsx") return;
+        if (!preview && !location.hostname.endsWith("github.io")) return;
+        var loader = document.createElement("script");
+        loader.type = "module";
+        loader.src = "/grok1/published/boot.js";
+        document.body.appendChild(loader);
+      })();
+    </script>
+  </body>
+</html>

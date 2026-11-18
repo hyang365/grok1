@@ -1,0 +1,212 @@
+import { useSyncExternalStore } from "react";
+import { SHARED, supabase, YALE_EMAIL } from "./backend";
+
+export type TargetType = "place" | "program";
+
+export type Review = {
+  id: string;
+  targetType: TargetType;
+  targetId: string;
+  userId: string;
+  author: string;
+  term: string;
+  year: number;
+  ratings: Record<string, number>;
+  body: string;
+  createdAt: string;
+};
+
+export type Session = { userId: string; email: string } | null;
+
+type Snapshot = {
+  reviews: Review[];
+  session: Session;
+  loading: boolean;
+  error: string | null;
+  version: number;
+};
+
+const LOCAL_KEY = "triptable-reviews-v2";
+const LOCAL_USER = "local-device";
+
+let snap: Snapshot = { reviews: [], session: null, loading: SHARED, error: null, version: 0 };
+const listeners = new Set<() => void>();
+
+function emit(patch: Partial<Snapshot>) {
+  snap = { ...snap, ...patch, version: snap.version + 1 };
+  listeners.forEach((fn) => fn());
+}
+
+function readLocal(): Review[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    const data = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(data) ? (data as Review[]).filter((r) => r && typeof r.targetId === "string" && r.ratings) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocal(reviews: Review[]) {
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(reviews));
+  } catch {
+    /* storage blocked */
+  }
+}
+
+type Row = {
+  id: string;
+  target_type: TargetType;
+  target_id: string;
+  user_id: string;
+  author: string;
+  term: string;
+  year: number;
+  ratings: Record<string, number>;
+  body: string;
+  created_at: string;
+};
+
+const fromRow = (r: Row): Review => ({
+  id: r.id,
+  targetType: r.target_type,
+  targetId: r.target_id,
+  userId: r.user_id,
+  author: r.author,
+  term: r.term,
+  year: r.year,
+  ratings: r.ratings,
+  body: r.body,
+  createdAt: r.created_at,
+});
+
+async function refresh() {
+  if (!supabase) return;
+  const { data, error } = await supabase.from("reviews").select("*").order("created_at", { ascending: false }).limit(5000);
+  if (error) emit({ loading: false, error: "Couldn't load reviews. Try again in a minute." });
+  else emit({ loading: false, error: null, reviews: (data as Row[]).map(fromRow) });
+}
+
+function init() {
+  // Old local-only program reviews from the first version of the Study Abroad tab.
+  localStorage.removeItem("triptable-abroad-reviews-v1");
+  if (!supabase) {
+    snap = { ...snap, reviews: readLocal(), session: { userId: LOCAL_USER, email: "" }, loading: false };
+    return;
+  }
+  supabase.auth.getSession().then(({ data }) => {
+    const user = data.session?.user;
+    emit({ session: user ? { userId: user.id, email: user.email ?? "" } : null });
+  });
+  supabase.auth.onAuthStateChange((_event, session) => {
+    const user = session?.user;
+    emit({ session: user ? { userId: user.id, email: user.email ?? "" } : null });
+  });
+  void refresh();
+}
+
+init();
+
+export type Draft = Omit<Review, "id" | "userId" | "createdAt">;
+
+export const reviews = {
+  subscribe(fn: () => void) {
+    listeners.add(fn);
+    return () => {
+      listeners.delete(fn);
+    };
+  },
+  get: () => snap,
+
+  async signIn(email: string): Promise<string | null> {
+    if (!supabase) return "Sign-in isn't connected yet.";
+    const clean = email.trim().toLowerCase();
+    if (!YALE_EMAIL.test(clean)) return "Use your @yale.edu email.";
+    const { error } = await supabase.auth.signInWithOtp({
+      email: clean,
+      options: { emailRedirectTo: location.origin + location.pathname },
+    });
+    return error ? error.message : null;
+  },
+
+  async signOut() {
+    await supabase?.auth.signOut();
+  },
+
+  async save(draft: Draft): Promise<string | null> {
+    const session = snap.session;
+    if (!session) return "Sign in with your Yale email to post.";
+    if (!supabase) {
+      const review: Review = { ...draft, id: `local-${Date.now()}`, userId: LOCAL_USER, createdAt: new Date().toISOString() };
+      const next = [review, ...snap.reviews.filter((r) => !(r.targetType === draft.targetType && r.targetId === draft.targetId && r.userId === LOCAL_USER))];
+      writeLocal(next);
+      emit({ reviews: next });
+      return null;
+    }
+    const { error } = await supabase.from("reviews").upsert(
+      {
+        target_type: draft.targetType,
+        target_id: draft.targetId,
+        user_id: session.userId,
+        author: draft.author,
+        term: draft.term,
+        year: draft.year,
+        ratings: draft.ratings,
+        body: draft.body,
+      },
+      { onConflict: "target_type,target_id,user_id" },
+    );
+    if (error) return error.message.includes("row-level security") ? "Only @yale.edu accounts can post reviews." : error.message;
+    await refresh();
+    return null;
+  },
+
+  async remove(id: string): Promise<void> {
+    if (!supabase) {
+      const next = snap.reviews.filter((r) => r.id !== id);
+      writeLocal(next);
+      emit({ reviews: next });
+      return;
+    }
+    await supabase.from("reviews").delete().eq("id", id);
+    await refresh();
+  },
+
+  async report(id: string, reason: string): Promise<string | null> {
+    if (!supabase) return null;
+    if (!snap.session) return "Sign in to report a review.";
+    const { error } = await supabase.from("review_reports").insert({ review_id: id, reason });
+    return error ? error.message : null;
+  },
+};
+
+export function useReviewStore(): Snapshot {
+  return useSyncExternalStore(reviews.subscribe, reviews.get, reviews.get);
+}
+
+export function reviewsFor(all: Review[], type: TargetType, id: string): Review[] {
+  return all.filter((r) => r.targetType === type && r.targetId === id);
+}
+
+export function averageOf(list: Review[], key: string): number | null {
+  const values = list.map((r) => r.ratings[key]).filter((v): v is number => typeof v === "number");
+  if (!values.length) return null;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+export const PLACE_KEYS = ["overall", "affordability", "safety", "beauty"] as const;
+export const PROGRAM_KEYS = ["overall", "academics", "housing", "value"] as const;
+
+/** Place scores built only from real reviews. Null until someone reviews the place. */
+export function placeScores(all: Review[], placeId: string) {
+  const list = reviewsFor(all, "place", placeId);
+  if (!list.length) return null;
+  return {
+    overall: averageOf(list, "overall") ?? 0,
+    affordability: averageOf(list, "affordability") ?? 0,
+    safety: averageOf(list, "safety") ?? 0,
+    beauty: averageOf(list, "beauty") ?? 0,
+    count: list.length,
+  };
+}
