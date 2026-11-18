@@ -735,3 +735,6 @@ details.inside-wrap .inside { margin-bottom: 8px; }
 .rail > .list { flex: none; overflow: visible; min-height: auto; }
 .rail-head { position: sticky; top: 0; z-index: 1; background: var(--color-bg); padding-bottom: 8px; }
 .score-basis { margin: -4px 0 8px; }
+.legend-gray { display: flex; align-items: center; gap: 6px; }
+.legend-swatch { width: 12px; height: 10px; border-radius: 2px; background: #f3f3f3; border: 1px solid var(--color-border); display: inline-block; }
+:root[data-theme="dark"] .legend-swatch, .dark .legend-swatch { background: #2a2a2a; }
