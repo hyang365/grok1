@@ -154,7 +154,7 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
           </select>
         </div>
       </div>
-      <details className="filters-drawer" open={!filtersAreDefault(filters) || undefined}>
+      <details className="filters-drawer" open>
         <summary>
           Filters
           {activeCount(filters) ? <span className="badge">{activeCount(filters)}</span> : null}
