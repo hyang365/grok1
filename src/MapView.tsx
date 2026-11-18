@@ -4,11 +4,11 @@ import worldHigh from "@amcharts/amcharts5-geodata/worldHigh";
 import usaLow from "@amcharts/amcharts5-geodata/usaLow";
 import { useEffect, useRef } from "react";
 import { COUNTRY_BY_ISO, PLACE_BY_ID, PLACES } from "./data";
-import { heatColor, passesFilters, ratingColor, scoreOf, seasonLabel, visitCount } from "./logic";
+import { passesFilters, ratingColor, scoreOf, seasonLabel, visitCount } from "./logic";
 import { useCatalog, useFriends, useTripTable } from "./store";
 import { usePlans } from "./live/plans";
-import { useReviewStore } from "./reviews/store";
-import { ABROAD_CITIES, maxPerCountry, offeredIn, programsIn } from "./abroad/data";
+import { reviews, useReviewStore } from "./reviews/store";
+import { ABROAD_CITIES, offeredIn, programsIn } from "./abroad/data";
 
 type PointDatum = {
   latitude: number;
@@ -89,16 +89,31 @@ export function MapView() {
     api.background.set("fill", am5.color(dark ? 0x121820 : 0xe8f1fb));
     if (abroad) {
       const term = state.abroadTerm;
-      const maxN = maxPerCountry(term);
+      const allReviews = reviews.get().reviews;
       const termLabel = term === "Summer" ? "summer" : `${term.toLowerCase()} semester`;
       api.polygons.mapPolygons.each((polygon) => {
         const ctx = polygon.dataItem?.dataContext as { id?: string; name?: string } | undefined;
-        const n = ctx?.id ? programsIn(ctx.id, term).length : 0;
+        const progs = ctx?.id ? programsIn(ctx.id, term) : [];
+        const n = progs.length;
         const isSelected = Boolean(ctx?.id && ctx.id === state.abroadIso);
-        polygon.set("fill", am5.color(n ? heatColor(n, maxN, dark) : dark ? 0x2a2a2a : 0xf3f3f3));
+        // Shaded by the average overall rating of that country's programs this term.
+        const ids = new Set(progs.map((p) => p.id));
+        const vals = allReviews
+          .filter((r) => r.targetType === "program" && ids.has(r.targetId) && typeof r.ratings.overall === "number")
+          .map((r) => r.ratings.overall);
+        const rating = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+        polygon.set(
+          "fill",
+          am5.color(rating !== null ? ratingColor(rating, dark) : n ? (dark ? 0x333a44 : 0xe3e7ed) : dark ? 0x2a2a2a : 0xf3f3f3),
+        );
         polygon.set("stroke", am5.color(isSelected ? (dark ? 0xffffff : 0x141414) : dark ? 0x1a1a1a : 0xffffff));
         polygon.set("strokeWidth", isSelected ? 1.8 : 0.55);
-        polygon.set("tooltipText", n ? `${ctx?.name ?? ""}\n${n} ${termLabel} ${n === 1 ? "program" : "programs"}` : (ctx?.name ?? ""));
+        polygon.set(
+          "tooltipText",
+          n
+            ? `${ctx?.name ?? ""}\n${n} ${termLabel} ${n === 1 ? "program" : "programs"} · ${rating !== null ? `rated ${rating.toFixed(1)} overall` : "not rated yet"}`
+            : (ctx?.name ?? ""),
+        );
       });
       const spots: PointDatum[] = [];
       for (const city of ABROAD_CITIES) {

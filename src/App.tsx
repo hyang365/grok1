@@ -204,13 +204,15 @@ function Shell() {
             </div>
             {abroadMap ? (
               <div className="legend">
-                <div className="legend-title">{state.abroadTerm === "Summer" ? "Summer" : `${state.abroadTerm} semester`} programs</div>
+                <div className="legend-title">Program rating · {state.abroadTerm === "Summer" ? "Summer" : `${state.abroadTerm} semester`}</div>
                 <div className="legend-scale">
                   <span>1</span>
                   <i className="legend-bar" />
-                  <span>More</span>
+                  <span>5</span>
                 </div>
-                <div className="legend-total">Yale-run and Yale-approved programs offered this term</div>
+                <div className="legend-total legend-gray">
+                  <i className="legend-swatch has-programs" /> Programs, not rated yet
+                </div>
               </div>
             ) : (
               <div className="legend">
