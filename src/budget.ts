@@ -18,6 +18,8 @@ const COUNTRY: Record<string, Cost> = {
   IS: { travel: 650, bed: 150, day: 110, how: "flight" },
   PT: { travel: 750, bed: 80, day: 60, how: "flight" },
   KR: { travel: 1300, bed: 80, day: 60, how: "flight" },
+  CN: { travel: 1200, bed: 60, day: 45, how: "flight" },
+  HK: { travel: 1300, bed: 130, day: 80, how: "flight" },
   MA: { travel: 900, bed: 50, day: 40, how: "flight" },
   CR: { travel: 500, bed: 70, day: 60, how: "flight" },
   GR: { travel: 950, bed: 90, day: 70, how: "flight" },
