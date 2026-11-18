@@ -33,7 +33,7 @@ The site is connected to the Supabase project `triptable` (`yzldywaosqijduvtqvnb
 
 - **Live transit relay:** deployed as the `transit` edge function (`supabase/functions/transit`). Each deploy logs a check of every feed in the "Publish GitHub Pages" run.
 - **Reviews:** tables and row-level security from `supabase/schema.sql` are applied. Anyone can read; only signed-in @yale.edu accounts can post, edit or delete their own reviews; reports go to `review_reports` for you to moderate in the dashboard.
-- **Sign-in links:** in [Authentication → URL Configuration](https://supabase.com/dashboard/project/yzldywaosqijduvtqvnb/auth/url-configuration), set Site URL to `https://hyang365.github.io/grok1/` and add it under Redirect URLs, or sign-in links will point at localhost.
+- **Sign-in links:** Site URL is `https://hyang365.github.io/grok1/` and `https://hyang365.github.io/grok1/**` is an allowed redirect ([URL Configuration](https://supabase.com/dashboard/project/yzldywaosqijduvtqvnb/auth/url-configuration)). If the site moves to a new domain, add it there.
 - Supabase's built-in email sender is limited to a few sign-in emails an hour. For real use, add your own SMTP under Authentication → Emails.
 
 ## Live transit
