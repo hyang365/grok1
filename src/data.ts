@@ -1,4 +1,5 @@
 import type { Place, Stay } from "./types";
+import { SPOT_ROWS } from "./spots";
 
 
 type Spec = {
@@ -1196,6 +1197,29 @@ export const PLACES: Place[] = [
     stays: [{ name: "Hotel Gault", area: "Old Montreal", nightly: 185 }],
   }),
 ];
+
+// Cities and destinations inside each country (see spots.ts).
+for (const row of SPOT_ROWS) {
+  const parent = PLACES.find((p) => p.id === row.parent);
+  if (!parent || PLACES.some((p) => p.id === row.id)) continue;
+  PLACES.push(
+    place({
+      id: row.id,
+      name: row.name,
+      kind: "spot",
+      iso: parent.iso,
+      parentId: parent.id,
+      lat: row.lat,
+      lng: row.lng,
+      region: parent.name,
+      blurb: row.blurb,
+      guide: row.guide,
+      tags: row.tags,
+      aliases: [row.name.toLowerCase(), ...(row.aliases ?? [])],
+      stays: [],
+    }),
+  );
+}
 
 export const PLACE_BY_ID = new Map(PLACES.map((place) => [place.id, place]));
 export const COUNTRY_BY_ISO = new Map(PLACES.filter((place) => place.kind === "country").map((place) => [place.iso, place]));

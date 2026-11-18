@@ -118,11 +118,10 @@ export function MapView() {
     const maxSpot = Math.max(1, ...spotCounts);
     const spots: PointDatum[] = [];
     for (const place of PLACES) {
-      if (place.kind !== "spot" || !passed.has(place.id)) continue;
-      const show =
-        place.iso === "US" ||
-        Boolean(selected && (place.parentId === selected.id || place.parentId === selected.parentId || place.id === selected.id));
-      if (!show) continue;
+      if (place.kind !== "spot") continue;
+      // A selected country (or one of its places) always shows its cities and destinations.
+      const related = Boolean(selected && (place.parentId === selected.id || place.parentId === selected.parentId || place.id === selected.id));
+      if (!related && (!passed.has(place.id) || place.iso !== "US")) continue;
       const count = visitCount(place, state.season);
       const scale = Math.sqrt(count / maxSpot);
       spots.push({
