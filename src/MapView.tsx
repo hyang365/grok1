@@ -4,7 +4,7 @@ import worldHigh from "@amcharts/amcharts5-geodata/worldHigh";
 import usaLow from "@amcharts/amcharts5-geodata/usaLow";
 import { useEffect, useRef } from "react";
 import { COUNTRY_BY_ISO, PLACE_BY_ID, PLACES } from "./data";
-import { heatColor, seasonLabel, visitCount } from "./logic";
+import { heatColor, passesFilters, seasonLabel, visitCount } from "./logic";
 import { useCatalog, useFriends, useTripTable } from "./store";
 import { usePlans } from "./live/plans";
 import { ABROAD_CITIES, maxPerCountry, offeredIn, programsIn } from "./abroad/data";
@@ -137,7 +137,12 @@ export function MapView() {
       if (place.kind !== "spot") continue;
       // A selected country (or one of its places) always shows its cities and destinations.
       const related = Boolean(selected && (place.parentId === selected.id || place.parentId === selected.parentId || place.id === selected.id));
-      if (!related && (!passed.has(place.id) || place.iso !== "US")) continue;
+      // Every city, park and landmark shows on the map; "Countries" only changes the list, not the pins.
+      const visible =
+        related ||
+        passed.has(place.id) ||
+        (state.filters.scope === "countries" && passesFilters(place, visitCount(place, state.season), { ...state.filters, scope: "all" }));
+      if (!visible) continue;
       const count = visitCount(place, state.season);
       const scale = Math.sqrt(count / maxSpot);
       spots.push({
@@ -145,7 +150,7 @@ export function MapView() {
         longitude: place.lng,
         placeId: place.id,
         tooltip: `${place.name}\n${count ? `${count.toLocaleString("en-US")} planning` : "No plans yet"}`,
-        radius: (place.id === state.selectedId ? 10 : 7.5) + scale * 5,
+        radius: (place.id === state.selectedId ? 10 : related || usFocus ? 7.5 : 5.5) + scale * 5,
         fill: place.cat ? ICON_FILL[place.cat] : 0x163e78,
         icon: place.cat,
         label: usFocus && place.iso === "US" && (US_LABELS.has(place.id) || place.id === state.selectedId) ? place.name : undefined,

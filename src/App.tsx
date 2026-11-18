@@ -222,7 +222,7 @@ function Shell() {
                   <i className="legend-bar" />
                   <span>More</span>
                 </div>
-                {state.filters.scope === "us" || selected?.iso === "US" ? (
+                {true ? (
                   <div className="legend-icons">
                     <span><i className="li city" />City</span>
                     <span><i className="li park" />National park</span>
