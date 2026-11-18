@@ -69,7 +69,7 @@ export function SignInBox({ compact }: { compact?: boolean }) {
           <button className="primary" type="submit" disabled={busy}>Send link</button>
         </form>
       </details>
-      {msg ? <p className="fine">{msg}</p> : <p className="fine">Only @yale.edu accounts can post. Reviews show your college and class year, never your name or email.</p>}
+      {msg ? <p className="fine">{msg}</p> : <p className="fine">Only @yale.edu accounts can sign in. Reviews are completely anonymous.</p>}
     </div>
   );
 }
@@ -131,7 +131,7 @@ export function ReviewSection({
         {list.map((r) => (
           <li key={r.id}>
             <div className="rv-top">
-              <strong>{r.author}</strong>
+              <strong>{session && r.userId === session.userId ? "You (shown as Anonymous)" : "Anonymous Yale student"}</strong>
               <span className="fine">{r.term} {r.year}</span>
             </div>
             <p className="fine">{keys.map((k) => `${label(k)} ${r.ratings[k] ?? "—"}`).join(" · ")}</p>
@@ -186,15 +186,6 @@ function ReviewForm({
   initial?: { term: string; year: number; ratings: Record<string, number>; body: string; author: string };
   onDone: () => void;
 }) {
-  const saved = (() => {
-    try {
-      return JSON.parse(localStorage.getItem(AUTHOR_KEY) ?? "{}") as { college?: string; classYear?: string };
-    } catch {
-      return {};
-    }
-  })();
-  const [college, setCollege] = useState(saved.college ?? COLLEGES[0]);
-  const [classYear, setClassYear] = useState(saved.classYear ?? String(new Date().getFullYear() + 1));
   const [term, setTerm] = useState(initial?.term ?? terms[0]);
   const [year, setYear] = useState(initial?.year ?? YEARS[0]);
   const [ratings, setRatings] = useState<Record<string, number>>(initial?.ratings ?? Object.fromEntries(keys.map((k) => [k, 4])));
@@ -211,28 +202,14 @@ function ReviewForm({
           setError("Write at least a couple of sentences so it helps the next person.");
           return;
         }
-        localStorage.setItem(AUTHOR_KEY, JSON.stringify({ college, classYear }));
-        const author = college === "Graduate / Professional" ? "Graduate / Professional" : `${college} '${classYear.slice(2)}`;
         setBusy(true);
-        const err = await reviews.save({ targetType, targetId, author, term, year, ratings, body: body.trim() });
+        const err = await reviews.save({ targetType, targetId, author: "Yale student", term, year, ratings, body: body.trim() });
         setBusy(false);
         if (err) setError(err);
         else onDone();
       }}
     >
       <div className="rv-row">
-        <label>College
-          <select value={college} onChange={(e) => setCollege(e.target.value)}>
-            {COLLEGES.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </label>
-        {college !== "Graduate / Professional" ? (
-          <label>Class of
-            <select value={classYear} onChange={(e) => setClassYear(e.target.value)}>
-              {Array.from({ length: 10 }, (_, i) => String(new Date().getFullYear() + 4 - i)).map((y) => <option key={y}>{y}</option>)}
-            </select>
-          </label>
-        ) : null}
         <label>When
           <select value={term} onChange={(e) => setTerm(e.target.value)}>
             {terms.map((t) => <option key={t}>{t}</option>)}
@@ -254,6 +231,7 @@ function ReviewForm({
         ))}
       </div>
       <textarea rows={4} value={body} maxLength={4000} onChange={(e) => { setBody(e.target.value); setError(""); }} placeholder={prompt} aria-label="Review" />
+      <p className="fine">Posted anonymously. No name, email, college or class year is shown, and other students can't see who wrote it.</p>
       {error ? <p className="form-error">{error}</p> : null}
       <div className="plan-actions">
         <button className="primary" type="submit" disabled={busy}>{busy ? "Posting…" : "Post review"}</button>
