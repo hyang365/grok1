@@ -17,17 +17,9 @@ type PointDatum = {
   radius: number;
   fill: number;
   iso?: string;
-  icon?: "city" | "park" | "landmark";
   label?: string;
 };
 
-// 12x12 icon paths drawn in white on a colored badge.
-const ICON_PATH: Record<NonNullable<PointDatum["icon"]>, string> = {
-  city: "M1 11V6h3v5zM5 11V1.5h3V11zM9 11V4h2.5v7z",
-  park: "M6 0.5L10 6H8L11 10H7V11.8H5V10H1L4 6H2Z",
-  landmark: "M6 0.4l1.7 3.6 3.9.5-2.9 2.7.8 3.9L6 9.2l-3.5 1.9.8-3.9L.4 4.5l3.9-.5z",
-};
-const ICON_FILL: Record<NonNullable<PointDatum["icon"]>, number> = { city: 0x0b3d91, park: 0x2f7d32, landmark: 0xd9822b };
 // Labeled on the U.S. map (others show their name on hover so the Northeast stays readable).
 const US_LABELS = new Set(["nyc", "boston", "dc", "chicago", "la", "sf", "seattle", "miami", "nola", "austin", "denver", "lasvegas", "atlanta", "nashville", "sandiego", "portlandor", "saltlake", "anchorage", "honolulu", "houston", "minneapolis", "orlando", "santafe"]);
 
@@ -138,10 +130,12 @@ export function MapView() {
       // A selected country (or one of its places) always shows its cities and destinations.
       const related = Boolean(selected && (place.parentId === selected.id || place.parentId === selected.parentId || place.id === selected.id));
       // Every city, park and landmark shows on the map; "Countries" only changes the list, not the pins.
+      // Zoomed out, only major cities get a dot. Parks and landmarks appear once you open their country.
       const visible =
         related ||
-        passed.has(place.id) ||
-        (state.filters.scope === "countries" && passesFilters(place, visitCount(place, state.season), { ...state.filters, scope: "all" }));
+        (place.cat === "city" &&
+          (passed.has(place.id) ||
+            (state.filters.scope === "countries" && passesFilters(place, visitCount(place, state.season), { ...state.filters, scope: "all" }))));
       if (!visible) continue;
       const count = visitCount(place, state.season);
       const scale = Math.sqrt(count / maxSpot);
@@ -150,9 +144,8 @@ export function MapView() {
         longitude: place.lng,
         placeId: place.id,
         tooltip: `${place.name}\n${count ? `${count.toLocaleString("en-US")} planning` : "No plans yet"}`,
-        radius: (place.id === state.selectedId ? 10 : related || usFocus ? 7.5 : 5.5) + scale * 5,
-        fill: place.cat ? ICON_FILL[place.cat] : 0x163e78,
-        icon: place.cat,
+        radius: (place.id === state.selectedId ? 7 : related || usFocus ? 4.5 : 3.5) + scale * 5,
+        fill: place.id === state.selectedId ? 0x0b3d91 : 0x163e78,
         label: usFocus && place.iso === "US" && (US_LABELS.has(place.id) || place.id === state.selectedId) ? place.name : undefined,
       });
     }
@@ -305,18 +298,6 @@ export function MapView() {
             strokeWidth: 1.5,
           }),
         );
-        if (ctx?.icon) {
-          const size = Math.max(7, r * 1.15);
-          box.children.push(
-            am5.Graphics.new(bulletRoot, {
-              svgPath: ICON_PATH[ctx.icon],
-              fill: am5.color(0xffffff),
-              scale: size / 12,
-              dx: -size / 2,
-              dy: -size / 2,
-            }),
-          );
-        }
         if (ctx?.label) {
           box.children.push(
             am5.Label.new(bulletRoot, {
