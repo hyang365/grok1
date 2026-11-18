@@ -93,7 +93,6 @@ type Row = {
   id: string;
   target_type: TargetType;
   target_id: string;
-  user_id: string;
   author: string;
   term: string;
   year: number;
@@ -102,11 +101,13 @@ type Row = {
   created_at: string;
 };
 
-const fromRow = (r: Row): Review => ({
+// Reviews are anonymous: the database never sends who wrote one. Your own are
+// marked using my_review_ids(), which only returns your own review ids.
+const fromRow = (r: Row, mine: Set<string>, me: string): Review => ({
   id: r.id,
   targetType: r.target_type,
   targetId: r.target_id,
-  userId: r.user_id,
+  userId: mine.has(r.id) ? me : "",
   author: r.author,
   term: r.term,
   year: r.year,
@@ -117,10 +118,15 @@ const fromRow = (r: Row): Review => ({
 
 async function refresh() {
   if (!supabase || useLocal) return;
-  const { data, error } = await supabase.from("reviews").select("*").order("created_at", { ascending: false }).limit(5000);
+  const session = snap.session;
+  const [{ data, error }, mineRes] = await Promise.all([
+    supabase.from("reviews").select("id,target_type,target_id,author,term,year,ratings,body,created_at").order("created_at", { ascending: false }).limit(5000),
+    session?.email ? supabase.rpc("my_review_ids") : Promise.resolve({ data: [] as string[] }),
+  ]);
   if (error && (error.code === "PGRST205" || error.code === "42P01" || /does not exist|could not find the table/i.test(error.message))) return goLocal();
+  const mine = new Set<string>(Array.isArray(mineRes.data) ? (mineRes.data as string[]) : []);
   if (error) emit({ loading: false, error: "Couldn't load reviews. Try again in a minute." });
-  else emit({ loading: false, error: null, reviews: (data as Row[]).map(fromRow) });
+  else emit({ loading: false, error: null, reviews: (data as Row[]).map((r) => fromRow(r, mine, session?.userId ?? "")) });
 }
 
 function init() {
@@ -138,7 +144,9 @@ function init() {
   supabase.auth.onAuthStateChange((_event, session) => {
     if (useLocal) return;
     const user = session?.user;
+    const before = snap.session?.userId ?? null;
     emit({ session: user ? { userId: user.id, email: user.email ?? "" } : null });
+    if ((user?.id ?? null) !== before) void refresh();
   });
   void refresh();
   // Supabase publishes which sign-in providers are enabled; only offer Google once it's on.
@@ -199,19 +207,14 @@ export const reviews = {
       emit({ reviews: next });
       return null;
     }
-    const { error } = await supabase.from("reviews").upsert(
-      {
-        target_type: draft.targetType,
-        target_id: draft.targetId,
-        user_id: session.userId,
-        author: draft.author,
-        term: draft.term,
-        year: draft.year,
-        ratings: draft.ratings,
-        body: draft.body,
-      },
-      { onConflict: "target_type,target_id,user_id" },
-    );
+    const { error } = await supabase.rpc("save_review", {
+      p_target_type: draft.targetType,
+      p_target_id: draft.targetId,
+      p_term: draft.term,
+      p_year: draft.year,
+      p_ratings: draft.ratings,
+      p_body: draft.body,
+    });
     if (error) return error.message.includes("row-level security") ? "Only @yale.edu accounts can post reviews." : error.message;
     await refresh();
     return null;
@@ -224,7 +227,7 @@ export const reviews = {
       emit({ reviews: next });
       return;
     }
-    await supabase.from("reviews").delete().eq("id", id);
+    await supabase.rpc("delete_review", { p_id: id });
     await refresh();
   },
 

@@ -404,10 +404,11 @@ function Settings() {
         <h3>Account</h3>
         {shared ? <SignInBox /> : <p className="fine">Accounts turn on once the site's database is connected. Until then everything is saved in this browser.</p>}
       </div>
+      {me.signedIn ? (
       <div className="pf-card">
-        <h3>{me.signedIn ? "Your profile" : "How your reviews are signed"}</h3>
+        <h3>Your profile</h3>
         <p className="fine">
-          {me.signedIn ? "Friends see your name, college and class year. " : ""}Reviews show only your college and class year, never your name or email.
+          {me.signedIn ? "Friends see your name, college and class year. " : ""}Reviews are always anonymous and never show any of this.
         </p>
         {me.signedIn ? (
           <label className="pf-name">
@@ -445,6 +446,7 @@ function Settings() {
           Save
         </button>
       </div>
+      ) : null}
       <div className="pf-card">
         <h3>Preferences</h3>
         <label className="check">

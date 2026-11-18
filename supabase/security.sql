@@ -54,3 +54,8 @@ create trigger cap_trips before insert on public.trips for each row execute func
 
 alter table public.profiles add constraint profiles_avatar_url_check
   check (avatar_url is null or (char_length(avatar_url) <= 500 and avatar_url ~ '^https://'));
+
+-- Migration "anonymous_reviews": reviews are fully anonymous.
+-- author is always 'Yale student'; clients can't read user_id or write the table directly.
+-- Writes go through save_review() / delete_review(); my_review_ids() returns only your own ids.
+-- (See the live project for the function bodies.)
