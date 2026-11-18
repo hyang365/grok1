@@ -346,7 +346,7 @@ function MyReviews() {
                 <span className="fine">
                   {r.term} {r.year} · overall {r.ratings.overall ?? "—"}/5
                 </span>
-                <span className="pf-body">{r.body}</span>
+                <span className="pf-body">{r.body.trim() ? r.body : "Rating only (no written review)"}</span>
               </div>
               <div className="plan-actions">
                 <button
