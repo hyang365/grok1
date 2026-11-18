@@ -14,6 +14,7 @@ import {
   parseISODate,
   ratingBand,
   scoreOf,
+  ratingCount,
   seasonLabel,
   travelGuidance,
   visitCount,
@@ -321,6 +322,13 @@ export function PlacePanel({ place }: { place: Place }) {
             </div>
           ))}
         </div>
+        <p className="fine score-basis">
+          {ratingCount(place.id)
+            ? `Based on ${ratingCount(place.id)} ${ratingCount(place.id) === 1 ? "review" : "reviews"}${children.length ? ` of ${place.name} and its cities and destinations` : ""}.`
+            : children.length
+              ? `No reviews yet. Reviews of ${place.name} and its cities and destinations all count toward this rating.`
+              : "No reviews yet."}
+        </p>
         <div className="stats">
           <div>
             <b>{planning.toLocaleString("en-US")}</b>

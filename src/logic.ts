@@ -286,8 +286,26 @@ function mix(a: number, b: number, t: number): number {
 export type ScoreKey = "overall" | "affordability" | "safety" | "beauty";
 
 /** Average of real student reviews for a place, or null if nobody has reviewed it yet. */
+/**
+ * A country's rating averages every review of the country itself and of its
+ * cities and destinations. A city's rating uses only that city's reviews.
+ */
 export function scoreOf(placeId: string, key: ScoreKey): number | null {
-  return placeScores(reviews.get().reviews, placeId)?.[key] ?? null;
+  const all = reviews.get().reviews;
+  const kids = CHILDREN.get(placeId);
+  if (!kids?.length) return placeScores(all, placeId)?.[key] ?? null;
+  const ids = new Set([placeId, ...kids]);
+  const vals = all
+    .filter((r) => r.targetType === "place" && ids.has(r.targetId))
+    .map((r) => r.ratings[key])
+    .filter((v): v is number => typeof v === "number");
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+
+/** How many reviews feed a place's rating (a country counts its cities' reviews too). */
+export function ratingCount(placeId: string): number {
+  const ids = new Set([placeId, ...(CHILDREN.get(placeId) ?? [])]);
+  return reviews.get().reviews.filter((r) => r.targetType === "place" && ids.has(r.targetId)).length;
 }
 
 export function sortScore(placeId: string, sort: ScoreKey): number {
