@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { SHARED, supabase, YALE_EMAIL } from "./backend";
+import { SHARED, SUPABASE_ANON_KEY, SUPABASE_URL, supabase, YALE_EMAIL } from "./backend";
 
 export type TargetType = "place" | "program";
 
@@ -26,12 +26,14 @@ type Snapshot = {
   version: number;
   /** True when reviews are shared through the database; false = saved on this device only. */
   shared: boolean;
+  /** Whether "Sign in with Google" is switched on in Supabase (checked at load). */
+  google: boolean;
 };
 
 const LOCAL_KEY = "triptable-reviews-v2";
 const LOCAL_USER = "local-device";
 
-let snap: Snapshot = { reviews: [], session: null, loading: SHARED, error: null, version: 0, shared: SHARED };
+let snap: Snapshot = { reviews: [], session: null, loading: SHARED, error: null, version: 0, shared: SHARED, google: false };
 let useLocal = !SHARED;
 
 function goLocal() {
@@ -116,6 +118,13 @@ function init() {
     emit({ session: user ? { userId: user.id, email: user.email ?? "" } : null });
   });
   void refresh();
+  // Supabase publishes which sign-in providers are enabled; only offer Google once it's on.
+  fetch(`${SUPABASE_URL}/auth/v1/settings`, { headers: { apikey: SUPABASE_ANON_KEY } })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((s: { external?: { google?: boolean } } | null) => {
+      if (s?.external?.google) emit({ google: true });
+    })
+    .catch(() => {});
 }
 
 init();
@@ -138,6 +147,16 @@ export const reviews = {
     const { error } = await supabase.auth.signInWithOtp({
       email: clean,
       options: { emailRedirectTo: location.origin + location.pathname },
+    });
+    return error ? error.message : null;
+  },
+
+  /** One-click sign-in with a Yale Google (EliApps) account. Only @yale.edu emails can post (enforced in the database). */
+  async signInWithGoogle(): Promise<string | null> {
+    if (!supabase || useLocal) return "Sign-in isn't connected yet.";
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: location.origin + location.pathname, queryParams: { hd: "yale.edu", prompt: "select_account" } },
     });
     return error ? error.message : null;
   },
