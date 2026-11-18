@@ -20,4 +20,6 @@ for (let i = 0, n = 0; i < app.length; n += 1) {
 for (const old of readdirSync("assets")) if (old.startsWith("style-")) rmSync(`assets/${old}`);
 copyFileSync(`site/assets/${css}`, `assets/${css}`);
 writeFileSync("published/manifest.json", JSON.stringify({ css: `/grok1/assets/${css}`, parts }));
+// Static pages (privacy, terms, logo) also live at the repo root for branch-served Pages.
+for (const f of ["privacy.html", "terms.html", "logo-120.png", "logo.png"]) copyFileSync(`public/${f}`, f);
 console.log(`published ${parts.length} parts, css ${css}`);

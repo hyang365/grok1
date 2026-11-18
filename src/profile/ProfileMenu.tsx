@@ -146,6 +146,11 @@ export function ProfileMenu() {
             <span>Help & about</span>
             <small>↗</small>
           </a>
+          <div className="pf-legal">
+            <a href={`${import.meta.env.BASE_URL}privacy.html`}>Privacy</a>
+            <span>·</span>
+            <a href={`${import.meta.env.BASE_URL}terms.html`}>Terms</a>
+          </div>
         </div>
       ) : null}
     </div>
