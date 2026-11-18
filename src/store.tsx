@@ -62,7 +62,7 @@ function defaultState(): State {
     season: "spring",
     sort: "yalies",
     sortDir: "desc",
-    filters: { ...DEFAULT_FILTERS },
+    filters: { ...DEFAULT_FILTERS, scope: "countries" },
     selectedId: null,
     emptyGeo: null,
     showFriends: true,
@@ -128,6 +128,7 @@ function loadState(): State {
     const incoming = data.filters ?? base.filters;
     const filters = { ...base.filters, ...incoming };
     if (!SCOPES.has(filters.scope)) filters.scope = "all";
+    if ((data.view ?? base.view) === "map" && filters.scope === "all") filters.scope = "countries";
     filters.features = Array.isArray(incoming.features) ? incoming.features.filter((id) => FEATURE_IDS.has(id)) : [];
     filters.continents = Array.isArray(incoming.continents) ? incoming.continents.filter((name) => CONTINENT_NAMES.has(name)) : [];
     return {
@@ -189,6 +190,8 @@ function reducer(state: State, action: Action): State {
     case "setTheme":
       return { ...state, theme: action.theme };
     case "setView":
+      // The map has no "All" list (the Catalog is the full list), so it opens on Countries.
+      if (action.view === "map" && state.filters.scope === "all") return { ...state, view: action.view, filters: { ...state.filters, scope: "countries" } };
       return { ...state, view: action.view };
     case "setSeason":
       return { ...state, season: action.season };
@@ -214,7 +217,7 @@ function reducer(state: State, action: Action): State {
         emptyGeo: null,
         homeTick: state.homeTick + 1,
         abroadIso: null,
-        filters: { ...state.filters, scope: "all" },
+        filters: { ...state.filters, scope: "countries" },
       };
     case "toggleFriends":
       return { ...state, showFriends: !state.showFriends };

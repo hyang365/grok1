@@ -117,7 +117,9 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
               ["countries", "Countries"],
               ["us", "U.S."],
             ] as const
-          ).map(([id, label]) => (
+          )
+            .filter(([id]) => id !== "all" || state.view !== "map")
+            .map(([id, label]) => (
             <button
               key={id}
               type="button"
@@ -202,7 +204,7 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
           className="textlink"
           type="button"
           disabled={filtersAreDefault(filters)}
-          onClick={() => dispatch({ type: "patchFilters", patch: { ...DEFAULT_FILTERS, query: filters.query } })}
+          onClick={() => dispatch({ type: "patchFilters", patch: { ...DEFAULT_FILTERS, query: filters.query, scope: state.view === "map" ? "countries" : "all" } })}
         >
           Reset filters
         </button>
@@ -646,7 +648,7 @@ export function CatalogView() {
                 <td className="num">
                   <Rating value={scoreOf(place.id, "beauty")} />
                 </td>
-                <td>{guidance.level === "blocked" ? "Not sponsored" : guidance.level === "regional" ? "Partial ban" : "Waiver if sponsored"}</td>
+                <td>{guidance.level === "blocked" ? "Not sponsored" : guidance.level === "regional" ? "Partial ban" : "Safe to travel"}</td>
                 <td>
                   <button
                     className="plus"

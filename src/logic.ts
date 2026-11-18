@@ -213,8 +213,8 @@ export function travelGuidance(iso: string): Guidance {
   }
   return {
     level: "ok",
-    title: "Check advisories, then the waiver",
-    detail: `${WAIVER} A later Level 4 advisory, or an International SOS rating of High or Extreme, would end Yale sponsorship.`,
+    title: "Safe to travel",
+    detail: "No Yale travel restrictions here. Taking a Yale-funded or for-credit trip? File the OISP travel waiver before you go.",
   };
 }
 
@@ -246,7 +246,7 @@ export function filtersAreDefault(filters: Filters): boolean {
     filters.minYalies <= 0 &&
     filters.features.length === 0 &&
     filters.continents.length === 0 &&
-    filters.scope === "all"
+    (filters.scope === "all" || filters.scope === "countries")
   );
 }
 
