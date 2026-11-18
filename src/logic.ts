@@ -288,8 +288,9 @@ export function heatColor(count: number, max: number, dark: boolean): number {
 /** Map shade for an overall rating from 1 (lightest blue) to 5 (darkest). */
 export function ratingColor(score: number, dark: boolean): number {
   const t = Math.max(0, Math.min(1, (score - 1) / 4));
-  const low = dark ? 0x1a3f73 : 0xb9d2f4;
-  const high = dark ? 0xc5ddff : 0x0b3d91;
+  // Soft range so the map stays readable: pale blue at 1, medium blue at 5.
+  const low = dark ? 0x22344c : 0xdbe8fa;
+  const high = dark ? 0x5f8fd0 : 0x5b8bd0;
   return mix(low, high, t);
 }
 
