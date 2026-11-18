@@ -1219,6 +1219,18 @@ for (const row of SPOT_ROWS) {
       stays: [],
     }),
   );
+  if (row.cat) PLACES[PLACES.length - 1].cat = row.cat;
+}
+
+// Map icons for the original spots. Others fall back to their tags.
+const CATS: Record<string, Place["cat"]> = {
+  acadia: "park", wave: "landmark", salvation: "landmark", bigsur: "landmark", sedona: "landmark", marfa: "landmark",
+  hudson: "landmark", montauk: "landmark", block: "landmark", newport: "landmark", amalfi: "landmark", zermatt: "landmark",
+  lafortuna: "park", chefchaouen: "city",
+};
+for (const p of PLACES) {
+  if (p.kind !== "spot" || p.cat) continue;
+  p.cat = CATS[p.id] ?? (p.tags.includes("city") ? "city" : p.tags.some((t) => ["hike", "nature", "mountain"].includes(t)) ? "park" : "landmark");
 }
 
 export const PLACE_BY_ID = new Map(PLACES.map((place) => [place.id, place]));

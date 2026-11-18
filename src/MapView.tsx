@@ -1,6 +1,7 @@
 import * as am5 from "@amcharts/amcharts5";
 import * as am5map from "@amcharts/amcharts5/map";
 import worldHigh from "@amcharts/amcharts5-geodata/worldHigh";
+import usaLow from "@amcharts/amcharts5-geodata/usaLow";
 import { useEffect, useRef } from "react";
 import { COUNTRY_BY_ISO, PLACE_BY_ID, PLACES } from "./data";
 import { heatColor, seasonLabel, visitCount } from "./logic";
@@ -16,7 +17,19 @@ type PointDatum = {
   radius: number;
   fill: number;
   iso?: string;
+  icon?: "city" | "park" | "landmark";
+  label?: string;
 };
+
+// 12x12 icon paths drawn in white on a colored badge.
+const ICON_PATH: Record<NonNullable<PointDatum["icon"]>, string> = {
+  city: "M1 11V6h3v5zM5 11V1.5h3V11zM9 11V4h2.5v7z",
+  park: "M6 0.5L10 6H8L11 10H7V11.8H5V10H1L4 6H2Z",
+  landmark: "M6 0.4l1.7 3.6 3.9.5-2.9 2.7.8 3.9L6 9.2l-3.5 1.9.8-3.9L.4 4.5l3.9-.5z",
+};
+const ICON_FILL: Record<NonNullable<PointDatum["icon"]>, number> = { city: 0x0b3d91, park: 0x2f7d32, landmark: 0xd9822b };
+// Labeled on the U.S. map (others show their name on hover so the Northeast stays readable).
+const US_LABELS = new Set(["nyc", "boston", "dc", "chicago", "la", "sf", "seattle", "miami", "nola", "austin", "denver", "lasvegas", "atlanta", "nashville", "sandiego", "portlandor", "saltlake", "anchorage", "honolulu", "houston", "minneapolis", "orlando", "santafe"]);
 
 type Api = {
   root: am5.Root;
@@ -24,6 +37,7 @@ type Api = {
   polygons: am5map.MapPolygonSeries;
   spots: am5map.MapPointSeries;
   pals: am5map.MapPointSeries;
+  states: am5map.MapPolygonSeries;
   background: am5.Rectangle;
   ready: boolean;
   seen: Set<string>;
@@ -114,6 +128,8 @@ export function MapView() {
       );
     });
 
+    const usFocus = state.filters.scope === "us" || selected?.iso === "US";
+    api.states.set("visible", usFocus);
     const spotCounts = PLACES.filter((place) => place.kind === "spot").map((place) => visitCount(place, state.season));
     const maxSpot = Math.max(1, ...spotCounts);
     const spots: PointDatum[] = [];
@@ -129,8 +145,10 @@ export function MapView() {
         longitude: place.lng,
         placeId: place.id,
         tooltip: `${place.name}\n${count ? `${count.toLocaleString("en-US")} planning` : "No plans yet"}`,
-        radius: (place.id === state.selectedId ? 8 : 4) + scale * 7,
-        fill: place.id === state.selectedId ? 0x0b3d91 : 0x163e78,
+        radius: (place.id === state.selectedId ? 10 : 7.5) + scale * 5,
+        fill: place.cat ? ICON_FILL[place.cat] : 0x163e78,
+        icon: place.cat,
+        label: usFocus && place.iso === "US" && (US_LABELS.has(place.id) || place.id === state.selectedId) ? place.name : undefined,
       });
     }
     for (const place of PLACES) {
@@ -193,6 +211,11 @@ export function MapView() {
       }
       if (!selected) {
         if (state.homeTick > 0) chart.goHome(400);
+        return;
+      }
+      if (selected.kind === "country" && selected.iso === "US") {
+        // The lower 48 (Alaska and Hawaii would zoom the map out to half the world).
+        chart.zoomToGeoBounds({ left: -126, right: -66, top: 50, bottom: 23.5 }, 450);
         return;
       }
       if (selected.kind === "country") {
@@ -258,39 +281,66 @@ export function MapView() {
       else dispatch({ type: "selectEmpty", iso: ctx.id, name: ctx.name ?? ctx.id });
     });
 
+    // U.S. state borders, shown when you're looking at the United States.
+    const states = chart.series.push(am5map.MapPolygonSeries.new(root, { geoJSON: usaLow, visible: false }));
+    states.mapPolygons.template.setAll({ interactive: false, fillOpacity: 0, stroke: am5.color(0x9aa7b8), strokeWidth: 0.6, strokeOpacity: 0.9 });
+
     const spots = chart.series.push(am5map.MapPointSeries.new(root, { latitudeField: "latitude", longitudeField: "longitude" }));
     const pals = chart.series.push(am5map.MapPointSeries.new(root, { latitudeField: "latitude", longitudeField: "longitude" }));
     const attach = (series: am5map.MapPointSeries) => {
-      series.bullets.push((bulletRoot) => {
-        const circle = am5.Circle.new(bulletRoot, {
-          radius: 5,
-          fill: am5.color(0x163e78),
-          stroke: am5.color(0xffffff),
-          strokeWidth: 1.5,
-          cursorOverStyle: "pointer",
-          tooltipText: "{tooltip}",
-        });
-        circle.adapters.add("radius", (_radius, target) => {
-          const ctx = target.dataItem?.dataContext as PointDatum | undefined;
-          return ctx?.radius ?? 5;
-        });
-        circle.adapters.add("fill", (_fill, target) => {
-          const ctx = target.dataItem?.dataContext as PointDatum | undefined;
-          return am5.color(ctx?.fill ?? 0x163e78);
-        });
-        circle.events.on("click", (event) => {
+      series.bullets.push((bulletRoot, _series, dataItem) => {
+        const ctx = dataItem.dataContext as PointDatum | undefined;
+        const r = ctx?.radius ?? 5;
+        const box = am5.Container.new(bulletRoot, { cursorOverStyle: "pointer", tooltipText: "{tooltip}", interactive: true });
+        box.children.push(
+          am5.Circle.new(bulletRoot, {
+            radius: r,
+            fill: am5.color(ctx?.fill ?? 0x163e78),
+            stroke: am5.color(0xffffff),
+            strokeWidth: 1.5,
+          }),
+        );
+        if (ctx?.icon) {
+          const size = Math.max(7, r * 1.15);
+          box.children.push(
+            am5.Graphics.new(bulletRoot, {
+              svgPath: ICON_PATH[ctx.icon],
+              fill: am5.color(0xffffff),
+              scale: size / 12,
+              dx: -size / 2,
+              dy: -size / 2,
+            }),
+          );
+        }
+        if (ctx?.label) {
+          box.children.push(
+            am5.Label.new(bulletRoot, {
+              text: ctx.label,
+              fontSize: 11,
+              fontWeight: "600",
+              fill: am5.color(0x1b2430),
+              centerY: am5.p50,
+              dx: r + 3,
+              background: am5.RoundedRectangle.new(bulletRoot, { fill: am5.color(0xffffff), fillOpacity: 0.8, cornerRadiusTL: 3, cornerRadiusTR: 3, cornerRadiusBL: 3, cornerRadiusBR: 3 }),
+              paddingLeft: 3,
+              paddingRight: 3,
+              paddingTop: 1,
+              paddingBottom: 1,
+            }),
+          );
+        }
+        box.events.on("click", () => {
           pointGuard.current = Date.now();
-          const ctx = event.target.dataItem?.dataContext as PointDatum | undefined;
           if (ctx?.iso) dispatch({ type: "selectAbroad", iso: ctx.iso });
           else if (ctx?.placeId) dispatch({ type: "select", id: ctx.placeId });
         });
-        return am5.Bullet.new(bulletRoot, { sprite: circle });
+        return am5.Bullet.new(bulletRoot, { sprite: box });
       });
     };
     attach(spots);
     attach(pals);
 
-    const api: Api = { root, chart, polygons, spots, pals, background, ready: false, seen: new Set() };
+    const api: Api = { root, chart, polygons, spots, pals, states, background, ready: false, seen: new Set() };
     apiRef.current = api;
     polygons.events.on("datavalidated", () => {
       const seen = new Set<string>();

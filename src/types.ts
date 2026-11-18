@@ -39,6 +39,8 @@ export type Place = {
   tags: string[];
   aliases: string[];
   atlas?: string;
+  /** Map icon for cities and destinations. */
+  cat?: "city" | "park" | "landmark";
 };
 
 export type PersonTrip = {
