@@ -4,9 +4,10 @@ import worldHigh from "@amcharts/amcharts5-geodata/worldHigh";
 import usaLow from "@amcharts/amcharts5-geodata/usaLow";
 import { useEffect, useRef } from "react";
 import { COUNTRY_BY_ISO, PLACE_BY_ID, PLACES } from "./data";
-import { heatColor, passesFilters, seasonLabel, visitCount } from "./logic";
+import { heatColor, passesFilters, ratingColor, scoreOf, seasonLabel, visitCount } from "./logic";
 import { useCatalog, useFriends, useTripTable } from "./store";
 import { usePlans } from "./live/plans";
+import { useReviewStore } from "./reviews/store";
 import { ABROAD_CITIES, maxPerCountry, offeredIn, programsIn } from "./abroad/data";
 
 type PointDatum = {
@@ -62,6 +63,7 @@ function polygonItem(series: am5map.MapPolygonSeries, iso: string) {
 export function MapView() {
   const { state, dispatch } = useTripTable();
   const { passed, maxCountry } = useCatalog();
+  const { version: reviewsVersion } = useReviewStore();
   const friends = useFriends();
   const { version: plansVersion } = usePlans();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -124,12 +126,16 @@ export function MapView() {
       const count = country ? visitCount(country, state.season) : 0;
       const on = Boolean(country && passed.has(country.id));
       const isSelected = country?.id === state.selectedId;
-      polygon.set("fill", am5.color(on && country && count > 0 ? heatColor(count, maxCountry, dark) : dark ? 0x2a2a2a : 0xf3f3f3));
+      // Countries are shaded by their overall rating (the country plus its cities); unrated stays gray.
+      const rating = country ? scoreOf(country.id, "overall") : null;
+      polygon.set("fill", am5.color(on && rating !== null ? ratingColor(rating, dark) : dark ? 0x2a2a2a : 0xf3f3f3));
       polygon.set("stroke", am5.color(isSelected ? (dark ? 0xffffff : 0x141414) : dark ? 0x1a1a1a : 0xffffff));
       polygon.set("strokeWidth", isSelected ? 1.8 : 0.55);
       polygon.set(
         "tooltipText",
-        on && country ? `${country.name}\n${count ? `${count.toLocaleString("en-US")} planning` : "No plans yet"} · ${seasonName}` : (ctx?.name ?? ""),
+        on && country
+          ? `${country.name}\n${rating !== null ? `Rated ${rating.toFixed(1)} overall` : "No ratings yet"} · ${count ? `${count.toLocaleString("en-US")} planning` : "no plans yet"}`
+          : (ctx?.name ?? ""),
       );
     });
 
@@ -376,7 +382,7 @@ export function MapView() {
 
   useEffect(() => {
     paintRef.current();
-  }, [state.theme, state.season, state.filters, state.showFriends, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, passed, friends, maxCountry, plansVersion]);
+  }, [state.theme, state.season, state.filters, state.showFriends, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, passed, friends, maxCountry, plansVersion, reviewsVersion]);
 
   useEffect(() => {
     zoomRef.current();

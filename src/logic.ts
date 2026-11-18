@@ -274,6 +274,14 @@ export function heatColor(count: number, max: number, dark: boolean): number {
   return mix(low, high, t);
 }
 
+/** Map shade for an overall rating from 1 (lightest blue) to 5 (darkest). */
+export function ratingColor(score: number, dark: boolean): number {
+  const t = Math.max(0, Math.min(1, (score - 1) / 4));
+  const low = dark ? 0x1a3f73 : 0xb9d2f4;
+  const high = dark ? 0xc5ddff : 0x0b3d91;
+  return mix(low, high, t);
+}
+
 function mix(a: number, b: number, t: number): number {
   const channel = (shift: number) => {
     const from = (a >> shift) & 255;

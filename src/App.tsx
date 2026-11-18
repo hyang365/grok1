@@ -214,13 +214,14 @@ function Shell() {
               </div>
             ) : (
               <div className="legend">
-                <div className="legend-title">
-                  {seasonLabel(state.season)} {seasonYear(state.season)}
-                </div>
+                <div className="legend-title">Overall rating</div>
                 <div className="legend-scale">
-                  <span>Fewer</span>
+                  <span>1</span>
                   <i className="legend-bar" />
-                  <span>More</span>
+                  <span>5</span>
+                </div>
+                <div className="legend-total legend-gray">
+                  <i className="legend-swatch" /> Not rated yet
                 </div>
                 {selected || state.filters.scope === "us" ? (
                   <div className="legend-icons">
@@ -231,8 +232,8 @@ function Shell() {
                 ) : null}
                 <div className="legend-total">
                   {total
-                    ? `${total.toLocaleString("en-US")} ${total === 1 ? "student plan" : "student plans"}${state.filters.scope === "us" ? " in the U.S." : ""}`
-                    : "No plans saved yet. Add yours from any place."}
+                    ? `${total.toLocaleString("en-US")} ${total === 1 ? "student plan" : "student plans"} for ${seasonLabel(state.season)} ${seasonYear(state.season)}${state.filters.scope === "us" ? " in the U.S." : ""}`
+                    : `No ${seasonLabel(state.season)} plans saved yet.`}
                 </div>
               </div>
             )}
