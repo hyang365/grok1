@@ -311,7 +311,16 @@ export function useCatalog(): {
   return useMemo(() => {
     const rows = [...PLACE_BY_ID.values()]
       .map((place) => ({ place, count: visitCount(place, state.season) }))
-      .filter((row) => passesFilters(row.place, row.count, state.filters));
+      .filter((row) => passesFilters(row.place, row.count, state.filters))
+      // Lists show countries and cities. Attractions outside the U.S. (parks, landmarks) stay inside
+      // their country's panel and on the map, and still turn up when you search for them by name.
+      .filter(
+        (row) =>
+          row.place.kind === "country" ||
+          row.place.cat === "city" ||
+          row.place.iso === "US" ||
+          state.filters.query.trim().length > 0,
+      );
     const direction = state.sortDir === "asc" ? 1 : -1;
     rows.sort((a, b) => {
       const primary =
