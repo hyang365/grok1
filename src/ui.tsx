@@ -284,7 +284,7 @@ export function PlacePanel({ place }: { place: Place }) {
               </button>
             ) : null}
             <p className="kicker">
-              {place.kind === "country" ? "Country" : "City / destination"} · {place.region}
+              {place.kind === "country" ? "Country" : place.cat === "park" ? "National park / nature" : place.cat === "landmark" ? "Landmark / destination" : "City"} · {place.region}
               {!passed.has(place.id) ? " · Hidden by filters" : ""}
             </p>
             <h2 id="place-title">{place.name}</h2>
@@ -297,26 +297,6 @@ export function PlacePanel({ place }: { place: Place }) {
         <FindFlightsButton placeId={place.id} />
         <BucketButton kind="place" targetId={place.id} label={place.name} />
         <GuidanceNote iso={place.iso} />
-        {children.length > 0 ? (
-          <section className="inside-wrap">
-            <h3>{place.iso === "US" ? "Cities and destinations in the U.S." : `Cities and destinations in ${place.name}`}</h3>
-            <p className="fine">Pick one to read and leave reviews for that specific place.</p>
-            <ul className="inside">
-              {children.map((child) => (
-                <li key={child.id}>
-                  <button type="button" onClick={() => dispatch({ type: "select", id: child.id })}>
-                    <span>{child.name}</span>
-                    <span>
-                      {visitCount(child, state.season) ? `${visitCount(child, state.season).toLocaleString("en-US")} planning` : child.blurb.length > 46 ? `${child.blurb.slice(0, 44)}…` : child.blurb}
-                      {reviewCount(child.id) ? ` · ${reviewCount(child.id)} ${reviewCount(child.id) === 1 ? "review" : "reviews"}` : ""}
-                    </span>
-                    <Rating value={scoreOf(child.id, "overall")} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
         <p className="fine">{continentsOf(place).join(" and ")}</p>
         <ul className="tags">
           {place.atlas ? <li className="tag atlas-tag">Micro</li> : null}
@@ -360,6 +340,29 @@ export function PlacePanel({ place }: { place: Place }) {
             <small>{friendHits.length ? "only friends you added" : "add friends to see names"}</small>
           </div>
         </div>
+        {children.length > 0 ? (
+          <details className="inside-wrap" key={place.id}>
+            <summary>
+              <span>{place.iso === "US" ? "Cities, parks and landmarks" : "Cities and destinations"}</span>
+              <span className="inside-count">{children.length}</span>
+            </summary>
+            <p className="fine">The ratings above are for all of {place.name}. Pick a place for its own ratings and reviews.</p>
+            <ul className="inside">
+              {children.map((child) => (
+                <li key={child.id}>
+                  <button type="button" onClick={() => dispatch({ type: "select", id: child.id })}>
+                    <span>{child.name}</span>
+                    <span>
+                      {visitCount(child, state.season) ? `${visitCount(child, state.season).toLocaleString("en-US")} planning` : child.blurb.length > 46 ? `${child.blurb.slice(0, 44)}…` : child.blurb}
+                      {reviewCount(child.id) ? ` · ${reviewCount(child.id)} ${reviewCount(child.id) === 1 ? "review" : "reviews"}` : ""}
+                    </span>
+                    <Rating value={scoreOf(child.id, "overall")} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
         {place.atlas ? <p className="atlas">{place.atlas}</p> : null}
         {place.guide.split("\n\n").map((paragraph) => (
           <p key={paragraph} className="guide">

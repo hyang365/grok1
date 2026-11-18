@@ -12,7 +12,11 @@ export type SpotRow = {
   blurb: string;
   guide: string;
   aliases?: string[];
+  /** Map icon: a city, a national park or a landmark. */
+  cat?: "city" | "park" | "landmark";
 };
+
+const c = (cat: SpotRow["cat"], row: SpotRow): SpotRow => ({ ...row, cat });
 
 const s = (id: string, name: string, parent: string, lat: number, lng: number, tags: string[], blurb: string, guide: string, aliases: string[] = []): SpotRow => ({
   id,
@@ -213,4 +217,62 @@ export const SPOT_ROWS: SpotRow[] = [
   s("melbourne", "Melbourne", "au", -37.81, 144.96, ["city", "food"], "Laneway coffee, street art and the Great Ocean Road.", "The free tram zone covers the CBD. The Great Ocean Road works best as an overnight.", ["great ocean road"]),
   s("greatbarrierreef", "Great Barrier Reef", "au", -16.92, 145.77, ["beach", "island", "nature"], "The world's largest reef system.", "Cairns and Port Douglas run the reef trips; outer-reef boats see healthier coral. June to October is stinger-free.", ["cairns", "port douglas"]),
   s("byronbay", "Byron Bay", "au", -28.64, 153.61, ["beach", "coast"], "A laid-back surf town at Australia's eastern tip.", "Walk to the lighthouse for sunrise. Fly into Ballina or Gold Coast.", []),
+  // United States: more major cities
+  c("city", s("seattle", "Seattle", "us", 47.61, -122.33, ["city", "food", "coast"], "Pike Place, ferries and mountain views on a clear day.", "Ride a ferry to Bainbridge for the skyline. Mount Rainier is a long day trip.", ["pike place"])),
+  c("city", s("portlandor", "Portland, Oregon", "us", 45.52, -122.68, ["city", "food"], "Food carts, coffee and the Columbia River Gorge.", "Multnomah Falls is 30 minutes away. Powell's is a whole city block of books.", ["portland oregon", "pdx"])),
+  c("city", s("sandiego", "San Diego", "us", 32.72, -117.16, ["city", "beach"], "Beach weather almost all year.", "La Jolla Cove for the sea lions, Balboa Park for the museums. The trolley reaches the border.", ["la jolla"])),
+  c("city", s("lasvegas", "Las Vegas", "us", 36.17, -115.14, ["city", "nightlife", "desert"], "The Strip, plus a base for desert parks.", "Most hotels require guests to be 21 to check in. Red Rock Canyon is 30 minutes west.", ["vegas"])),
+  c("city", s("denver", "Denver", "us", 39.74, -104.99, ["city", "mountain"], "The Mile High City, at the edge of the Rockies.", "Red Rocks Amphitheatre for a concert. Ski towns are two hours west; I-70 traffic is heavy on weekends.", ["red rocks"])),
+  c("city", s("atlanta", "Atlanta", "us", 33.75, -84.39, ["city", "food", "culture"], "Civil rights history and a huge food scene.", "The MLK National Historical Park is free. Walk or bike the BeltLine.", [])),
+  c("city", s("savannah", "Savannah", "us", 32.08, -81.09, ["city", "culture", "food"], "Live oaks, Spanish moss and 22 historic squares.", "Very walkable. Tybee Island beach is 30 minutes away.", ["tybee"])),
+  c("city", s("sanantonio", "San Antonio", "us", 29.42, -98.49, ["city", "culture", "food"], "The River Walk and the Alamo.", "The missions trail by bike is the underrated day. Tex-Mex everywhere.", ["alamo", "river walk"])),
+  c("city", s("houston", "Houston", "us", 29.76, -95.37, ["city", "food"], "Space Center Houston and one of the most diverse food scenes in the U.S.", "You'll need a car. The Museum District has several free museums.", [])),
+  c("city", s("minneapolis", "Minneapolis", "us", 44.98, -93.27, ["city"], "Lakes, bike trails and a big arts scene.", "Summer is the season. In winter the skyway connects much of downtown indoors.", ["twin cities"])),
+  c("city", s("pittsburgh", "Pittsburgh", "us", 40.44, -80.0, ["city"], "Bridges, inclines and a lot of hills.", "Ride the Duquesne Incline for the view. The Andy Warhol Museum is here.", [])),
+  c("city", s("baltimore", "Baltimore", "us", 39.29, -76.61, ["city", "food"], "Inner Harbor, crabs and row-house neighborhoods.", "An easy Amtrak ride. Fells Point is the evening neighborhood.", [])),
+  c("city", s("providence", "Providence", "us", 41.82, -71.41, ["city", "food"], "A short train ride away, with WaterFire nights.", "Federal Hill for Italian food. WaterFire runs on select summer and fall nights.", [])),
+  c("city", s("portlandme", "Portland, Maine", "us", 43.66, -70.26, ["city", "food", "coast"], "Lobster rolls, lighthouses and a working waterfront.", "Portland Head Light is the postcard. Buses run from New Haven via Boston.", ["portland maine"])),
+  c("city", s("burlington", "Burlington, Vermont", "us", 44.48, -73.21, ["city", "mountain"], "A lake town with skiing nearby.", "Church Street is the center. Stowe and Sugarbush are within an hour.", ["vermont", "stowe"])),
+  c("city", s("saltlake", "Salt Lake City", "us", 40.76, -111.89, ["city", "mountain", "ski"], "Ski resorts 40 minutes from the airport.", "The base for Utah's national parks road trip and Park City skiing.", ["park city"])),
+  c("city", s("santafe", "Santa Fe", "us", 35.69, -105.94, ["city", "culture", "desert"], "Adobe galleries, green chile and high-desert light.", "Meow Wolf is the wild one. At 7,000 feet, drink a lot of water.", [])),
+  c("city", s("keywest", "Key West", "us", 24.56, -81.78, ["beach", "island", "city"], "The end of the Overseas Highway.", "Sunset at Mallory Square. Dry Tortugas National Park is a ferry day; book well ahead.", ["florida keys", "dry tortugas"])),
+  c("city", s("orlando", "Orlando", "us", 28.54, -81.38, ["city"], "Theme parks, plus springs to cool off in.", "Kennedy Space Center is an hour east. Nearby state-park springs are a cheap break from the parks.", ["disney world", "universal"])),
+  c("city", s("memphis", "Memphis", "us", 35.15, -90.05, ["city", "food", "culture"], "Beale Street blues, barbecue and Graceland.", "The National Civil Rights Museum at the Lorraine Motel is essential.", ["graceland"])),
+  c("city", s("anchorage", "Anchorage", "us", 61.22, -149.9, ["city", "mountain", "nature"], "The gateway to Alaska.", "Summer has near-endless daylight. The train to Seward and Denali is the scenic way.", ["alaska"])),
+
+  // United States: national parks
+  c("park", s("yosemite", "Yosemite", "us", 37.87, -119.54, ["hike", "mountain", "nature"], "Half Dome, El Capitan and giant sequoias.", "Some seasons need a reservation to drive in. Half Dome requires a permit lottery.", ["half dome", "el capitan"])),
+  c("park", s("grandcanyon", "Grand Canyon", "us", 36.11, -112.11, ["hike", "desert", "nature"], "A mile deep, and bigger than any photo.", "The South Rim is open all year; the North Rim is seasonal. Don't try to hike to the river and back in one day.", ["south rim"])),
+  c("park", s("zion", "Zion", "us", 37.3, -113.03, ["hike", "desert"], "Red canyon walls and the Narrows river hike.", "A shuttle replaces cars in the main canyon for much of the year. Angels Landing needs a permit.", ["angels landing", "the narrows"])),
+  c("park", s("brycecanyon", "Bryce Canyon", "us", 37.59, -112.19, ["hike", "desert"], "Orange hoodoos and very dark skies.", "Sunrise at Sunrise Point. It's high and cold, even in spring.", ["hoodoos"])),
+  c("park", s("arches", "Arches & Canyonlands", "us", 38.73, -109.59, ["hike", "desert"], "Over 2,000 natural stone arches near Moab.", "Arches uses timed-entry reservations in busy months. Delicate Arch is best at sunset.", ["moab", "canyonlands", "delicate arch"])),
+  c("park", s("yellowstone", "Yellowstone", "us", 44.43, -110.59, ["nature", "hike", "mountain"], "Old Faithful, bison and the Grand Prismatic Spring.", "Most roads close in winter. Stay on boardwalks; the thermal areas are dangerous. Lodging books up a year out.", ["old faithful"])),
+  c("park", s("grandteton", "Grand Teton", "us", 43.79, -110.68, ["mountain", "hike", "nature"], "Jagged peaks over glassy lakes, next to Jackson Hole.", "Pair it with Yellowstone. Jenny Lake is the classic hike.", ["jackson hole", "jenny lake"])),
+  c("park", s("glacier", "Glacier", "us", 48.7, -113.72, ["mountain", "hike", "nature"], "Going-to-the-Sun Road and alpine lakes.", "The road fully opens only in summer, and the busy season may need vehicle reservations.", ["going to the sun"])),
+  c("park", s("rockymountain", "Rocky Mountain", "us", 40.34, -105.68, ["mountain", "hike", "nature"], "Alpine tundra and elk, about 90 minutes from Denver.", "Timed entry is required in summer. Trail Ridge Road climbs over 12,000 feet.", ["estes park", "trail ridge"])),
+  c("park", s("joshuatree", "Joshua Tree", "us", 33.87, -115.9, ["desert", "hike"], "Strange trees, boulder piles and huge night skies.", "Best from fall to spring; summer is extremely hot. Bring all your water.", [])),
+  c("park", s("deathvalley", "Death Valley", "us", 36.51, -117.08, ["desert"], "The lowest, hottest, driest park.", "Go in winter. Badwater Basin, Zabriskie Point and the dunes at sunrise.", ["badwater"])),
+  c("park", s("smokies", "Great Smoky Mountains", "us", 35.61, -83.49, ["mountain", "hike", "nature"], "The most visited national park, with misty ridges.", "Entry is free, but parking tags are required. Fall color peaks in late October.", ["smoky mountains", "gatlinburg"])),
+  c("park", s("shenandoah", "Shenandoah", "us", 38.53, -78.44, ["mountain", "hike", "nature"], "Skyline Drive, about five hours from New Haven by car.", "Old Rag is the famous scramble and needs a day ticket in busy months. Fall weekends are packed.", ["skyline drive", "old rag"])),
+  c("park", s("everglades", "Everglades", "us", 25.29, -80.9, ["nature"], "Alligators, airboats and mangroves.", "Visit in the dry season (December to April) for wildlife and fewer bugs. Shark Valley has the tram.", [])),
+  c("park", s("olympic", "Olympic", "us", 47.8, -123.6, ["nature", "hike", "coast"], "Rainforest, glaciers and wild beaches in one park.", "Hoh Rain Forest and Rialto Beach are far apart, so plan two days.", ["hoh rain forest"])),
+  c("park", s("rainier", "Mount Rainier", "us", 46.85, -121.76, ["mountain", "hike"], "A glacier-covered volcano with wildflower meadows.", "Paradise is the main area. Summer may need timed entry.", ["paradise"])),
+  c("park", s("sequoia", "Sequoia & Kings Canyon", "us", 36.49, -118.57, ["nature", "hike", "mountain"], "The largest trees on Earth.", "General Sherman Tree is a short walk. Roads can need chains in winter.", ["general sherman"])),
+  c("park", s("hawaiivolcanoes", "Hawaiʻi Volcanoes", "us", 19.42, -155.29, ["nature", "hike", "island"], "Active volcanoes on the Big Island.", "Check the park site for current eruption viewing. Hilo or Volcano village is the base.", ["kilauea", "big island"])),
+  c("park", s("denali", "Denali", "us", 63.11, -151.19, ["mountain", "nature"], "North America's tallest peak and grizzlies on the tundra.", "Private cars stop early on the park road; buses go deeper. The season is short (June to mid-September).", [])),
+
+  // United States: landmarks and scenic places
+  c("landmark", s("niagara", "Niagara Falls", "us", 43.08, -79.07, ["nature"], "The falls, about seven hours from New Haven by car.", "Maid of the Mist from the U.S. side. A passport lets you walk to the Canadian side for the panorama.", [])),
+  c("landmark", s("antelope", "Antelope Canyon & Horseshoe Bend", "us", 36.86, -111.37, ["desert"], "Slot-canyon light beams near Page, Arizona.", "Antelope Canyon is only visitable on Navajo-guided tours, so book ahead. Horseshoe Bend is a short walk.", ["page", "horseshoe bend"])),
+  c("landmark", s("monumentvalley", "Monument Valley", "us", 36.98, -110.11, ["desert"], "The red buttes from every Western movie.", "It's a Navajo Tribal Park with its own entry fee. Drive the valley loop or take a Navajo-guided tour.", [])),
+  c("landmark", s("whitesands", "White Sands", "us", 32.78, -106.17, ["desert"], "Glittering white gypsum dunes you can sled down.", "Buy a plastic sled at the visitor center. Missile tests can close the road for a few hours.", [])),
+  c("landmark", s("rushmore", "Mount Rushmore & the Black Hills", "us", 43.88, -103.46, ["mountain", "nature"], "The carved presidents, plus Badlands and Custer State Park.", "Badlands National Park is an hour east. Rapid City is the base.", ["badlands", "black hills"])),
+  c("landmark", s("tahoe", "Lake Tahoe", "us", 39.1, -120.03, ["mountain", "ski", "beach"], "Clear alpine water in summer, skiing in winter.", "Emerald Bay is the view. Palisades and Heavenly are the big ski resorts.", ["emerald bay"])),
+  c("landmark", s("napa", "Napa & Sonoma", "us", 38.3, -122.29, ["food"], "California wine country, an hour from San Francisco.", "Wine tasting is 21+ only. Sonoma is generally more relaxed and cheaper than Napa.", ["sonoma"])),
+  c("landmark", s("capecod", "Cape Cod", "us", 41.67, -70.3, ["beach", "coast"], "Dunes, lighthouses and Provincetown, about four hours away.", "The National Seashore beaches are the reason to go. Summer weekend traffic over the bridges is brutal.", ["provincetown", "ptown"])),
+  c("landmark", s("marthasvineyard", "Martha's Vineyard", "us", 41.39, -70.63, ["island", "beach"], "Gingerbread cottages and cliffs at Aquinnah.", "Ferry from Woods Hole. Rent bikes instead of bringing a car.", ["aquinnah", "oak bluffs"])),
+  c("landmark", s("outerbanks", "Outer Banks", "us", 35.56, -75.47, ["beach", "coast"], "Barrier islands with wild horses and the Wright brothers' hill.", "Rent a house with a group. Corolla has the wild horses; Cape Hatteras has the lighthouse.", ["obx", "kitty hawk"])),
+  c("landmark", s("mackinac", "Mackinac Island", "us", 45.85, -84.62, ["island"], "No cars, just bikes, horses and fudge.", "Bike the 8-mile loop around the island. Summer only, really.", [])),
+  c("landmark", s("adirondacks", "Adirondacks & Lake Placid", "us", 44.28, -73.98, ["mountain", "hike", "ski"], "Six million acres of mountains and lakes in upstate New York.", "Lake Placid hosted two Winter Olympics. Cascade Mountain is the beginner High Peak.", ["lake placid"])),
+  c("landmark", s("whitemountains", "White Mountains", "us", 44.27, -71.3, ["mountain", "hike", "ski"], "New Hampshire peaks and the Kancamagus Highway.", "Mount Washington has some of the worst weather on Earth, so check the forecast. Fall foliage peaks in early October.", ["mount washington", "kancamagus"])),
 ];
