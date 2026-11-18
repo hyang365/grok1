@@ -60,7 +60,3 @@ New visitors are guests: no trips, no friends, nothing shared, everything kept i
 - Bucket list and preferences are saved on your device.
 - The group flight and booked checklist are saved on your device. Friends see them via the copied message until accounts are shared.
 - Stays: hotel names and rough prices, with no ratings.
-
-# Grok Proof
-
-<img width="2298" height="1862" alt="Screenshot 2026-11-17 at 6 12 31 PM" src="https://github.com/user-attachments/assets/4e63dda2-74c5-42bc-bff3-20586f07d9cc" />
