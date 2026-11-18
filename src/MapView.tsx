@@ -31,7 +31,7 @@ const ICON_PATH: Record<NonNullable<PointDatum["icon"]>, string> = {
 const ICON_FILL: Record<NonNullable<PointDatum["icon"]>, number> = { city: 0x0b3d91, park: 0x2f7d32, landmark: 0xd9822b };
 // Zoomed out, only these major tourism destinations get a dot.
 const MAJOR = new Set(
-  "nyc la sf miami nola chicago lasvegas dc honolulu grandcanyon yosemite orlando sanjuan cancun cdmx tulum rome florence venice amalfi paris nice barcelona madrid london edinburgh lisbon amsterdam berlin prague dubrovnik athens santorini istanbul reykjavik marrakech cairo tokyo kyoto seoul bangkok phuket ubud hanoi sydney cartagena machupicchu toronto montreal vancouver banff nassau puntacana montegobay interlaken dublin lafortuna".split(" "),
+  "nyc la sf miami nola chicago lasvegas dc honolulu grandcanyon yosemite orlando sanjuan cancun cdmx tulum rome florence venice amalfi paris nice barcelona madrid london edinburgh lisbon amsterdam berlin prague dubrovnik athens santorini istanbul reykjavik marrakech cairo tokyo kyoto seoul beijing shanghai greatwall bangkok phuket ubud hanoi sydney cartagena machupicchu toronto montreal vancouver banff nassau puntacana montegobay interlaken dublin lafortuna".split(" "),
 );
 
 // Labeled on the U.S. map (others show their name on hover so the Northeast stays readable).

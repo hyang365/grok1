@@ -362,7 +362,7 @@ export function PlacePanel({ place }: { place: Place }) {
                     <span>{child.name}</span>
                     <span>
                       {visitCount(child, state.season) ? `${visitCount(child, state.season).toLocaleString("en-US")} planning` : child.blurb.length > 46 ? `${child.blurb.slice(0, 44)}…` : child.blurb}
-                      {reviewCount(child.id) ? ` · ${reviewCount(child.id)} ${reviewCount(child.id) === 1 ? "review" : "reviews"}` : ""}
+                      {reviewCount(child.id) ? ` · ${reviewCount(child.id)} ${reviewCount(child.id) === 1 ? "rating" : "ratings"}` : ""}
                     </span>
                     <Rating value={scoreOf(child.id, "overall")} />
                   </button>

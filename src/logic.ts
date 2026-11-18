@@ -114,6 +114,12 @@ const REGIONAL: Record<string, string> = {
   CO: "A Level 4 advisory covers specific regions rather than the whole country. Yale will not sponsor travel into those regions.",
 };
 
+// Yale doesn't restrict these, but the State Department advisory has warnings worth reading first.
+const CAUTION: Record<string, string> = {
+  CN: "Yale doesn't restrict travel here, but the State Department's Level 2 advisory warns about exit bans and wrongful detention. Read it before you book.",
+  HK: "Yale doesn't restrict travel here, but the State Department's Level 2 advisory warns about arbitrary enforcement of local laws. Read it before you go.",
+};
+
 export type Guidance = { level: "ok" | "regional" | "blocked"; title: string; detail: string };
 
 const WAIVER =
@@ -170,6 +176,8 @@ const ISO_CONTINENT: Record<string, string[]> = {
   MA: ["Africa"],
   EG: ["Africa"],
   JP: ["Asia"],
+  CN: ["Asia"],
+  HK: ["Asia"],
   KR: ["Asia"],
   TH: ["Asia"],
   VN: ["Asia"],
@@ -207,6 +215,9 @@ export function travelGuidance(iso: string): Guidance {
       title: "Cuba needs extra Yale review",
       detail: `Academic work in Cuba has separate Office of the General Counsel rules on top of the travel policy. ${WAIVER}`,
     };
+  }
+  if (CAUTION[iso]) {
+    return { level: "ok", title: "Allowed, with extra caution", detail: `${CAUTION[iso]} ${WAIVER}` };
   }
   if (REGIONAL[iso]) {
     return { level: "regional", title: "Yale restricts part of this country", detail: `${REGIONAL[iso]} ${WAIVER}` };
