@@ -1,10 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-const pages = process.env.GITHUB_PAGES === "true";
-
+// Relative asset paths, so the same build works at hyang365.github.io/grok1/ and at a custom domain root.
 export default defineConfig({
-  base: pages ? "/grok1/" : "/",
+  base: "./",
   plugins: [react()],
   server: { host: "127.0.0.1", port: 5173, strictPort: true, allowedHosts: true },
   preview: { host: "127.0.0.1", port: 4173, strictPort: true },
@@ -12,6 +11,7 @@ export default defineConfig({
     outDir: "site",
     emptyOutDir: true,
     cssCodeSplit: false,
+    chunkSizeWarningLimit: 4000,
     modulePreload: false,
     rollupOptions: {
       output: {
