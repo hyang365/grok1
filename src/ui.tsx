@@ -23,7 +23,11 @@ import {
 import { DEFAULT_FILTERS, useCatalog, useFriends, useTripTable } from "./store";
 import type { Place, Season, SortKey } from "./types";
 import { ReviewSection } from "./reviews/ReviewSection";
-import { PLACE_KEYS, useReviewStore } from "./reviews/store";
+import { PLACE_KEYS, reviews as reviewStore, useReviewStore } from "./reviews/store";
+
+function reviewCount(id: string): number {
+  return reviewStore.get().reviews.filter((r) => r.targetType === "place" && r.targetId === id).length;
+}
 import { seasonYear, useOverlap, usePlans } from "./live/plans";
 import { BucketButton } from "./profile/ProfileMenu";
 import { isPast, isUpcoming } from "./profile/trips";
@@ -118,7 +122,6 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
               ["us", "U.S."],
             ] as const
           )
-            .filter(([id]) => id !== "all" || state.view !== "map")
             .map(([id, label]) => (
             <button
               key={id}
@@ -204,7 +207,7 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
           className="textlink"
           type="button"
           disabled={filtersAreDefault(filters)}
-          onClick={() => dispatch({ type: "patchFilters", patch: { ...DEFAULT_FILTERS, query: filters.query, scope: state.view === "map" ? "countries" : "all" } })}
+          onClick={() => dispatch({ type: "patchFilters", patch: { ...DEFAULT_FILTERS, query: filters.query } })}
         >
           Reset filters
         </button>
@@ -262,17 +265,26 @@ export function PlacePanel({ place }: { place: Place }) {
   const friendHits = friendsAtPlace(place.id, state.season, friends, relevant);
   const planning = visitCount(place, state.season, year);
   const lastYear = visitCount(place, state.season, year - 1);
-  const children = PLACES.filter((child) => child.parentId === place.id && visitCount(child, state.season) > 0).sort(
-    (a, b) => visitCount(b, state.season) - visitCount(a, state.season),
+  const children = PLACES.filter((child) => child.parentId === place.id).sort(
+    (a, b) =>
+      visitCount(b, state.season) - visitCount(a, state.season) ||
+      reviewCount(b.id) - reviewCount(a.id) ||
+      a.name.localeCompare(b.name),
   );
+  const parent = place.parentId ? PLACE_BY_ID.get(place.parentId) : undefined;
 
   return (
     <aside className="panel" aria-labelledby="place-title">
       <div className="panel-scroll">
         <div className="panel-head">
           <div>
+            {parent ? (
+              <button className="textlink back-link" type="button" onClick={() => dispatch({ type: "select", id: parent.id })}>
+                ← {parent.name}
+              </button>
+            ) : null}
             <p className="kicker">
-              {place.kind === "country" ? "Country" : "Spot"} · {place.region}
+              {place.kind === "country" ? "Country" : "City / destination"} · {place.region}
               {!passed.has(place.id) ? " · Hidden by filters" : ""}
             </p>
             <h2 id="place-title">{place.name}</h2>
@@ -285,6 +297,26 @@ export function PlacePanel({ place }: { place: Place }) {
         <FindFlightsButton placeId={place.id} />
         <BucketButton kind="place" targetId={place.id} label={place.name} />
         <GuidanceNote iso={place.iso} />
+        {children.length > 0 ? (
+          <section className="inside-wrap">
+            <h3>{place.iso === "US" ? "Cities and destinations in the U.S." : `Cities and destinations in ${place.name}`}</h3>
+            <p className="fine">Pick one to read and leave reviews for that specific place.</p>
+            <ul className="inside">
+              {children.map((child) => (
+                <li key={child.id}>
+                  <button type="button" onClick={() => dispatch({ type: "select", id: child.id })}>
+                    <span>{child.name}</span>
+                    <span>
+                      {visitCount(child, state.season) ? `${visitCount(child, state.season).toLocaleString("en-US")} planning` : child.blurb.length > 46 ? `${child.blurb.slice(0, 44)}…` : child.blurb}
+                      {reviewCount(child.id) ? ` · ${reviewCount(child.id)} ${reviewCount(child.id) === 1 ? "review" : "reviews"}` : ""}
+                    </span>
+                    <Rating value={scoreOf(child.id, "overall")} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         <p className="fine">{continentsOf(place).join(" and ")}</p>
         <ul className="tags">
           {place.atlas ? <li className="tag atlas-tag">Micro</li> : null}
@@ -347,22 +379,6 @@ export function PlacePanel({ place }: { place: Place }) {
             ))}
           </ul>
         ) : null}
-        {children.length > 0 ? (
-          <section className="inside-wrap">
-            <h3>{place.iso === "US" ? "Inside the United States" : `Inside ${place.name}`}</h3>
-            <ul className="inside">
-              {children.map((child) => (
-                <li key={child.id}>
-                  <button type="button" onClick={() => dispatch({ type: "select", id: child.id })}>
-                    <span>{child.name}</span>
-                    <span>{visitCount(child, state.season).toLocaleString("en-US")} planning</span>
-                    <Rating value={scoreOf(child.id, "overall")} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
         <div className="tabs" role="tablist">
           {(
             [
@@ -388,7 +404,17 @@ export function PlacePanel({ place }: { place: Place }) {
         ) : null}
         {tab === "stays" ? (
           <>
-          <p className="fine">Places to start looking. Prices are rough estimates, not quotes, and these aren't student reviews.</p>
+          {place.stays.length ? (
+            <p className="fine">Places to start looking. Prices are rough estimates, not quotes, and these aren't student reviews.</p>
+          ) : (
+            <p className="fine">
+              No stays listed yet.{" "}
+              <a href={`https://www.google.com/maps/search/${encodeURIComponent(`hotels in ${place.name}`)}`} target="_blank" rel="noreferrer">
+                Search hotels near {place.name} ↗
+              </a>{" "}
+              and tell others where you stayed in your review.
+            </p>
+          )}
           <ul className="stays">
             {place.stays.map((stay) => (
               <li key={stay.name}>

@@ -14,6 +14,7 @@ import { AbroadView } from "./abroad/AbroadView";
 import { AbroadMapPanel } from "./abroad/AbroadMapPanel";
 import { TransitView } from "./transit/TransitView";
 import { ProfileMenu } from "./profile/ProfileMenu";
+import { BudgetFinder } from "./budget/BudgetFinder";
 import { ProfileView } from "./profile/ProfileView";
 import { isUpcoming } from "./profile/trips";
 import "./abroad/abroad.css";
@@ -61,6 +62,7 @@ function Shell() {
   const { state, dispatch } = useTripTable();
   const { rows, total } = useCatalog();
   const [railOpen, setRailOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const selected = state.selectedId ? (PLACE_BY_ID.get(state.selectedId) ?? null) : null;
   const abroadMap = state.mapMode === "abroad";
@@ -116,7 +118,8 @@ function Shell() {
           onChange={(event) => dispatch({ type: "patchFilters", patch: { query: event.target.value } })}
           onKeyDown={(event) => {
             if (event.key !== "Enter") return;
-            const first = rows[0];
+            const q = state.filters.query.trim().toLowerCase();
+            const first = rows.find((row) => row.place.name.toLowerCase() === q) ?? rows.find((row) => row.place.name.toLowerCase().startsWith(q)) ?? rows[0];
             if (!first) return;
             dispatch({ type: "select", id: first.place.id });
             setRailOpen(false);
@@ -159,6 +162,11 @@ function Shell() {
             </>
           )}
         </label>
+        ) : null}
+        {placesView && !(abroadMap && state.view === "map") ? (
+          <button type="button" className="nav-btn budget-btn" onClick={() => setBudgetOpen(true)} title="Find trips that fit your budget">
+            $ Trip finder
+          </button>
         ) : null}
         <nav className="nav">
           {NAV.map(([view, label]) => {
@@ -260,6 +268,7 @@ function Shell() {
       {state.view === "profile" ? <ProfileView /> : null}
       {state.view === "friends" ? <FriendsView /> : null}
       {tripsView ? <TripsShell /> : null}
+      {budgetOpen ? <BudgetFinder onClose={() => setBudgetOpen(false)} /> : null}
       <AuthBanner />
       {state.toast ? (
         <div className="toast" role="status">

@@ -1,0 +1,36 @@
+.bf-overlay { position: fixed; inset: 0; z-index: 70; background: rgba(10, 14, 22, 0.45); display: flex; justify-content: center; align-items: flex-start; padding: 56px 16px 16px; overflow: auto; }
+.bf { width: min(880px, 100%); background: var(--color-surface, #fff); color: inherit; border-radius: 14px; border: 1px solid var(--color-border); box-shadow: 0 24px 60px rgba(0,0,0,.25); display: flex; flex-direction: column; max-height: calc(100vh - 72px); }
+.bf-head { display: flex; justify-content: space-between; gap: 12px; padding: 18px 20px 6px; }
+.bf-head h2 { font-size: 22px; letter-spacing: -0.03em; margin: 0 0 4px; }
+.bf-form { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 12px 16px; padding: 10px 20px 14px; border-bottom: 1px solid var(--color-border); }
+.bf-field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--color-text-secondary); }
+.bf-field > span strong { color: var(--color-text-primary, inherit); margin-left: 4px; }
+.bf-field select, .bf-money input { height: 34px; border: 1px solid var(--color-border-control, var(--color-border)); border-radius: 8px; background: transparent; color: inherit; padding: 0 8px; font: inherit; font-size: 14px; }
+.bf-money { display: flex; align-items: center; gap: 4px; font-size: 16px; color: var(--color-text-primary, inherit); }
+.bf-money input { width: 100%; font-weight: 600; }
+.bf-presets { display: flex; gap: 6px; flex-wrap: wrap; }
+.bf-presets button { border: 1px solid var(--color-border); background: transparent; color: inherit; border-radius: 999px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
+.bf-presets button.on { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+.bf-likes { grid-column: 1 / -1; }
+.bf-results { overflow: auto; padding: 14px 20px 18px; }
+.bf-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.bf-card button { width: 100%; height: 100%; text-align: left; background: transparent; color: inherit; border: 1px solid var(--color-border); border-radius: 10px; padding: 12px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; font: inherit; }
+.bf-card button:hover { border-color: var(--color-primary); }
+.bf-top { display: flex; justify-content: space-between; gap: 8px; }
+.bf-top > div { display: grid; }
+.bf-price { text-align: right; }
+.bf-price .under { font-size: 12px; color: #067647; }
+.bf-price .over { font-size: 12px; color: #b54708; }
+.bf-blurb { margin: 0; font-size: 13px; }
+.bf-break { margin: 0; }
+.bf-sub { font-size: 14px; margin: 18px 0 8px; }
+.bf-note { margin-top: 14px; }
+.budget-btn { white-space: nowrap; }
+@media (max-width: 760px) {
+  .bf-overlay { padding: 0; }
+  .bf { border-radius: 0; max-height: 100vh; min-height: 100vh; }
+  .bf-form { grid-template-columns: 1fr 1fr; }
+  .bf-budget { grid-column: 1 / -1; }
+}
+.bf .chips button { color: inherit; cursor: pointer; }
+.bf .chips button.on { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }

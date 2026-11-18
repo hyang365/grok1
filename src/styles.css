@@ -717,3 +717,4 @@ legend { padding: 0 4px; font-size: 12px; }
 .req-actions { display: flex; gap: 6px; align-items: center; }
 .ok-line { color: #067647; }
 .friend-detail header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.back-link { font-size: 12px; padding: 0; margin-bottom: 4px; }
