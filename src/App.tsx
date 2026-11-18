@@ -17,6 +17,8 @@ import { ProfileMenu } from "./profile/ProfileMenu";
 import { ProfileView } from "./profile/ProfileView";
 import { isUpcoming } from "./profile/trips";
 import "./abroad/abroad.css";
+import { reviews as reviewApi, useReviewStore } from "./reviews/store";
+import { useAccount } from "./account/account";
 
 const NAV: [ViewName, string][] = [
   ["map", "Map"],
@@ -258,11 +260,41 @@ function Shell() {
       {state.view === "profile" ? <ProfileView /> : null}
       {state.view === "friends" ? <FriendsView /> : null}
       {tripsView ? <TripsShell /> : null}
+      <AuthBanner />
       {state.toast ? (
         <div className="toast" role="status">
           {state.toast}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** Shows a failed sign-in once, and welcomes a new account the first time it signs in. */
+function AuthBanner() {
+  const { authError } = useReviewStore();
+  const { me } = useAccount();
+  const { dispatch } = useTripTable();
+  const greeted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!me || greeted.current === me.id) return;
+    greeted.current = me.id;
+    try {
+      if (sessionStorage.getItem("triptable-greeted") === me.id) return;
+      sessionStorage.setItem("triptable-greeted", me.id);
+    } catch {
+      /* storage blocked */
+    }
+    const first = (me.full_name || me.email).split(/[\s.@]/)[0];
+    dispatch({ type: "toast", message: `Signed in as ${first ? first[0].toUpperCase() + first.slice(1) : "you"}` });
+  }, [me, dispatch]);
+  if (!authError) return null;
+  return (
+    <div className="auth-banner" role="alert">
+      <span>{authError}</span>
+      <button type="button" className="textlink" onClick={() => reviewApi.clearAuthError()}>
+        Dismiss
+      </button>
     </div>
   );
 }

@@ -49,3 +49,8 @@
 .pf-legal { display: flex; gap: 6px; padding: 8px 10px 4px; font-size: 12px; color: var(--color-text-tertiary); }
 .pf-legal a { color: var(--color-text-tertiary); text-decoration: none; }
 .pf-legal a:hover { text-decoration: underline; }
+.pf-avatar .pf-guest { font-size: 12px; font-weight: 600; }
+.pf-menu > .pf-avatar:has(.pf-guest) { width: auto; padding: 0 12px; border-radius: 999px; }
+.pf-drop .pf-signin { background: var(--color-primary); color: #fff; border-radius: 8px; margin: 4px 0; justify-content: center; }
+.pf-name { display: grid; gap: 4px; margin-bottom: 8px; font-size: 13px; }
+.pf-name input { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--color-border, #d0d5dd); background: transparent; color: inherit; font: inherit; }

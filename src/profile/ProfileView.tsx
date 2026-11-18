@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { ME, PLACE_BY_ID, PLACES } from "../data";
+import { PLACE_BY_ID, PLACES } from "../data";
+import { account, useMe } from "../account/account";
 import { PROGRAMS } from "../abroad/data";
 import { flightStore, useFlights } from "../flights/flightStore";
 import { formatRange, seasonLabel } from "../logic";
@@ -23,16 +24,20 @@ export function ProfileView() {
   const past = state.trips.filter(isPast).sort((a, b) => b.start.localeCompare(a.start));
   const countries = new Set(past.map(countryOf).filter(Boolean));
   const mine = session ? reviews.filter((r) => r.userId === session.userId) : [];
+  const me = useMe();
 
   return (
     <div className="pf-page">
       <header className="pf-head">
-        <span className="pf-avatar xl">{initials(ME.name)}</span>
+        <span className="pf-avatar xl">{me.signedIn ? initials(me.name) : "?"}</span>
         <div>
-          <h2>{ME.name}</h2>
+          <h2>{me.name}</h2>
           <p className="fine">
-            {ME.netid} · {ME.college} · Class of {ME.year}
-            {session?.email && shared ? ` · ${session.email}` : ""}
+            {me.signedIn
+              ? [me.email, me.college, me.classYear ? `Class of ${me.classYear}` : ""].filter(Boolean).join(" · ")
+              : shared
+                ? "Guest. Sign in with your Yale account to save trips across devices and add friends."
+                : "Guest. Everything is saved in this browser."}
           </p>
         </div>
         <dl className="pf-stats">
@@ -370,6 +375,7 @@ function MyReviews() {
 function Settings() {
   const { state, dispatch } = useTripTable();
   const { shared } = useReviewStore();
+  const me = useMe();
   const fs = useFlights();
   const saved = (() => {
     try {
@@ -378,11 +384,12 @@ function Settings() {
       return {};
     }
   })();
-  const [college, setCollege] = useState(saved.college ?? COLLEGES[0]);
-  const [classYear, setClassYear] = useState(saved.classYear ?? ME.year);
+  const [name, setName] = useState(me.signedIn ? me.name : "");
+  const [college, setCollege] = useState(me.college || saved.college || COLLEGES[0]);
+  const [classYear, setClassYear] = useState(me.classYear || saved.classYear || String(new Date().getFullYear() + 2));
 
   function exportData() {
-    const data = { exportedAt: new Date().toISOString(), trips: state.trips, bucket: state.bucket, friends: state.friendNetids };
+    const data = { exportedAt: new Date().toISOString(), trips: state.trips, bucket: state.bucket, friends: account.get().friends.map((f) => f.name) };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -398,8 +405,16 @@ function Settings() {
         {shared ? <SignInBox /> : <p className="fine">Accounts turn on once the site's database is connected. Until then everything is saved in this browser.</p>}
       </div>
       <div className="pf-card">
-        <h3>How your reviews are signed</h3>
-        <p className="fine">Reviews show your college and class year, never your name or email.</p>
+        <h3>{me.signedIn ? "Your profile" : "How your reviews are signed"}</h3>
+        <p className="fine">
+          {me.signedIn ? "Friends see your name, college and class year. " : ""}Reviews show only your college and class year, never your name or email.
+        </p>
+        {me.signedIn ? (
+          <label className="pf-name">
+            Name
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+          </label>
+        ) : null}
         <div className="pf-dates">
           <label>
             College
@@ -421,9 +436,10 @@ function Settings() {
         <button
           type="button"
           className="primary"
-          onClick={() => {
+          onClick={async () => {
             localStorage.setItem(AUTHOR_KEY, JSON.stringify({ college, classYear }));
-            dispatch({ type: "toast", message: "Saved" });
+            const err = me.signedIn ? await account.updateProfile({ full_name: name.trim(), college, class_year: classYear }) : null;
+            dispatch({ type: "toast", message: err ? `Couldn't save: ${err}` : "Saved" });
           }}
         >
           Save
@@ -465,7 +481,7 @@ function Settings() {
             type="button"
             className="textlink danger"
             onClick={() => {
-              if (window.confirm("Reset trips, friends, bucket list and settings on this device?")) dispatch({ type: "reset" });
+              if (window.confirm("Reset trips, bucket list and settings on this device?")) dispatch({ type: "reset" });
             }}
           >
             Reset this device

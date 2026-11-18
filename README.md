@@ -14,7 +14,7 @@ https://hyang365.github.io/grok1/
 
 - **Map:** where Yalies travel each break, counted live from students' saved trips (names never shown). Click a place for ratings, stays and reviews.
 - **Catalog and filters:** sort and filter by affordability, safety, beauty, continent and type of trip.
-- **Friends:** add by NetID to see their plans and overlapping dates. Everyone else is just a count.
+- **Friends:** add a friend by Yale email or NetID; they accept, and you see each other's saved trips. Everyone else is just a count.
 - **Yale travel rules:** flags countries Yale won't sponsor (State Dept Level 4) and blocks flights there.
 - **Flights** (Itinerary → Flights): plan the trip from Old Campus, then search and book on Google Flights. There's no in-app flight data.
   - Every airport (Tweed, Bradley, JFK, LGA, Newark, Logan) with the ride from campus, split Uber cost, and when to leave, plus a one-click Google Flights search for that route and your dates.
@@ -46,11 +46,18 @@ Reported reviews land in the `review_reports` table for you to moderate in the S
 
 Every count on the map, catalog and place panels ("12 planning", overlap with your dates, history by year) comes from trips Yale students save while signed in. Trips sync to the `trips` table, which only its owner can read; the public sees only anonymous totals through `plan_counts()` and `overlap_count()`. Nothing is seeded.
 
-## Still sample data
+## Accounts and friends
 
-- The friends directory and their trips (the NetIDs in Friends are fictional).
+New visitors are guests: no trips, no friends, nothing shared, everything kept in the browser. Signing in with a Yale Google account (or an email link) creates a TripTable account automatically: a database trigger adds a row to `profiles` for every new sign-in. From there:
+
+- **Profile:** name, college and class year, editable under Profile → Settings.
+- **Friends:** a request goes into `friendships` as pending, and the other person accepts it. Only accepted friends can read each other's `trips` (row-level security). `find_student()` looks people up by exact Yale email or NetID, so nobody can browse the student list.
+- **Trips** sync to your account, so they follow you across devices.
+
+## Still estimates or on-device
+
 - Ground-transport times and costs in `src/flights/engine.ts` are rough planning estimates.
-- Trip history, bucket list and settings are saved on your device until accounts are shared.
+- Bucket list and preferences are saved on your device.
 - The group flight and booked checklist are saved on your device. Friends see them via the copied message until accounts are shared.
 - Stays: hotel names and rough prices, with no ratings.
 

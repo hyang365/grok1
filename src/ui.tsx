@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { FindFlightsButton, GroupFlightSummary } from "./flights/FlightsView";
-import { DIRECTORY, ME, PLACE_BY_ID, PLACES, SUGGESTED_NETIDS } from "./data";
+import { PLACE_BY_ID, PLACES } from "./data";
+import { account, displayName, useAccount, useMe } from "./account/account";
+import { SignInBox } from "./reviews/ReviewSection";
 import {
   continentsOf,
   CONTINENTS,
@@ -682,92 +684,127 @@ export function CatalogView() {
 
 export function FriendsView() {
   const { state, dispatch } = useTripTable();
-  const friends = useFriends();
+  const me = useMe();
+  const { friends, requests } = useAccount();
   const [draft, setDraft] = useState("");
-  const [error, setError] = useState("");
+  const [msg, setMsg] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
   const active = friends.find((person) => person.netid === state.friendFocus) ?? friends[0];
-  const query = draft.trim().toLowerCase();
-  const matches = query
-    ? DIRECTORY.filter((person) => person.netid.includes(query) || person.name.toLowerCase().includes(query)).slice(0, 6)
-    : [];
+  const incoming = requests.filter((r) => r.incoming);
+  const outgoing = requests.filter((r) => !r.incoming);
 
-  function add(netid: string) {
-    const id = netid.trim().toLowerCase();
-    if (!id) return;
-    if (id === ME.netid) {
-      setError("That NetID is you.");
-      return;
+  if (!me.signedIn) {
+    return (
+      <div className="friends-page guest">
+        <section className="friend-col">
+          <h2>Friends</h2>
+          <p className="fine">Sign in with your Yale account to add friends, see each other's trips and plan together. Everyone else only ever sees anonymous totals.</p>
+          <SignInBox />
+        </section>
+      </div>
+    );
+  }
+
+  async function add() {
+    const q = draft.trim().toLowerCase();
+    if (!q) return;
+    if (q === me.email.toLowerCase()) return setMsg({ kind: "error", text: "That's you." });
+    setBusy(true);
+    const found = await account.find(q);
+    if (!found) {
+      setBusy(false);
+      return setMsg({ kind: "error", text: "No TripTable account with that Yale email yet. Ask them to sign in once, then try again." });
     }
-    const person = DIRECTORY.find((candidate) => candidate.netid === id);
-    if (!person) {
-      setError("No Yale student with that NetID is in the directory.");
-      return;
-    }
-    if (state.friendNetids.includes(id)) {
-      setError(`${person.name} is already a friend.`);
-      dispatch({ type: "focusFriend", netid: id });
-      return;
-    }
-    setError("");
+    const err = await account.request(found.id);
+    setBusy(false);
+    if (err) return setMsg({ kind: "error", text: err });
     setDraft("");
-    dispatch({ type: "addFriend", netid: id });
+    setMsg({ kind: "ok", text: `Request sent to ${displayName(found)}.` });
   }
 
   return (
     <div className="friends-page">
       <section className="friend-col">
         <h2>Friends</h2>
-        <p className="fine">Add people by NetID. You can see their trips. Everyone else stays aggregated.</p>
+        <p className="fine">Add friends by their Yale email. You'll see each other's saved trips; everyone else sees only totals.</p>
         <form
           className="add-friend"
           onSubmit={(event) => {
             event.preventDefault();
-            add(draft);
+            void add();
           }}
         >
-          <input value={draft} onChange={(event) => { setDraft(event.target.value); setError(""); }} placeholder="Add by NetID" aria-label="NetID" />
-          <button className="primary" type="submit">
+          <input
+            value={draft}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setMsg(null);
+            }}
+            placeholder="first.last@yale.edu"
+            aria-label="Friend's Yale email"
+          />
+          <button className="primary" type="submit" disabled={busy}>
             Add
           </button>
         </form>
-        {error ? <p className="form-error">{error}</p> : null}
-        {matches.length > 0 ? (
-          <ul className="suggest">
-            {matches.map((person) => (
+        {msg ? <p className={msg.kind === "error" ? "form-error" : "fine ok-line"}>{msg.text}</p> : null}
+
+        {incoming.length ? (
+          <div className="req-block">
+            <p className="field-label">Requests for you</p>
+            {incoming.map((r) => (
+              <div key={r.id} className="req-row">
+                <span>
+                  <strong>{displayName(r.other)}</strong>
+                  <small>{r.other.email}</small>
+                </span>
+                <span className="req-actions">
+                  <button className="primary" type="button" onClick={() => void account.accept(r.id)}>
+                    Accept
+                  </button>
+                  <button className="textlink" type="button" onClick={() => void account.removeRequest(r.id)}>
+                    Decline
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {friends.length ? (
+          <ul className="friend-list">
+            {friends.map((person) => (
               <li key={person.netid}>
-                <button type="button" onClick={() => add(person.netid)}>
+                <button type="button" className={active?.netid === person.netid ? "active" : ""} onClick={() => dispatch({ type: "focusFriend", netid: person.netid })}>
                   <strong>{person.name}</strong>
                   <span>
-                    {person.netid} · {person.college} '{person.year.slice(2)}
+                    {person.college}
+                    {person.year ? ` '${person.year.slice(-2)}` : ""} · {person.trips.length} {person.trips.length === 1 ? "trip" : "trips"}
                   </span>
                 </button>
               </li>
             ))}
           </ul>
-        ) : null}
-        <ul className="friend-list">
-          {friends.map((person) => (
-            <li key={person.netid}>
-              <button type="button" className={active?.netid === person.netid ? "active" : ""} onClick={() => dispatch({ type: "focusFriend", netid: person.netid })}>
-                <strong>{person.name}</strong>
+        ) : (
+          <p className="empty">No friends yet. Add someone by their Yale email above.</p>
+        )}
+
+        {outgoing.length ? (
+          <div className="req-block">
+            <p className="field-label">Waiting for them to accept</p>
+            {outgoing.map((r) => (
+              <div key={r.id} className="req-row">
                 <span>
-                  {person.college} '{person.year.slice(2)}
+                  <strong>{displayName(r.other)}</strong>
+                  <small>{r.other.email}</small>
                 </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="chips">
-          {SUGGESTED_NETIDS.filter((id) => !state.friendNetids.includes(id)).map((id) => {
-            const person = DIRECTORY.find((candidate) => candidate.netid === id);
-            if (!person) return null;
-            return (
-              <button key={id} type="button" onClick={() => add(id)}>
-                Add {person.name.split(" ")[0]}
-              </button>
-            );
-          })}
-        </div>
+                <button className="textlink" type="button" onClick={() => void account.removeRequest(r.id)}>
+                  Cancel
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
       <section className="friend-detail">
         {active ? (
@@ -776,14 +813,22 @@ export function FriendsView() {
               <div>
                 <h2>{active.name}</h2>
                 <p>
-                  {active.college} · Class of {active.year} · {active.netid}
+                  {active.college}
+                  {active.year ? ` · Class of ${active.year}` : ""}
                 </p>
               </div>
-              <button className="textlink danger" type="button" onClick={() => dispatch({ type: "removeFriend", netid: active.netid })}>
+              <button
+                className="textlink danger"
+                type="button"
+                onClick={() => {
+                  if (window.confirm(`Remove ${active.name} as a friend?`)) void account.remove(active.netid);
+                }}
+              >
                 Remove friend
               </button>
             </header>
             <h3>Their trips</h3>
+            {active.trips.length === 0 ? <p className="empty">{active.name.split(" ")[0]} hasn't saved any trips yet.</p> : null}
             <ul className="trip-list">
               {active.trips.map((trip) => {
                 const place = PLACE_BY_ID.get(trip.placeId);
@@ -795,13 +840,13 @@ export function FriendsView() {
                       <span>
                         {seasonLabel(trip.season)} · {formatRange(trip.start, trip.end)}
                       </span>
-                      {trip.note ? <span className="fine">{trip.note}</span> : null}
                     </div>
                     <div className="plan-actions">
                       <button
                         type="button"
                         onClick={() => {
                           dispatch({ type: "setSeason", season: trip.season });
+                          dispatch({ type: "setView", view: "map" });
                           dispatch({ type: "select", id: place.id });
                         }}
                       >
@@ -811,17 +856,17 @@ export function FriendsView() {
                         className="primary"
                         type="button"
                         onClick={() => {
-                          const current = state.trips.find((item) => item.placeId === place.id);
+                          const current = state.trips.find((item) => item.placeId === place.id && item.start === trip.start);
                           dispatch({
                             type: "saveTrip",
                             message: `Planned with ${active.name}`,
                             trip: {
-                              id: current?.id ?? `trip-${place.id}`,
+                              id: current?.id ?? `trip-${place.id}-${trip.start}`,
                               placeId: place.id,
                               season: trip.season,
                               start: trip.start,
                               end: trip.end,
-                              note: current?.note || trip.note || `Planned with ${active.name}.`,
+                              note: current?.note ?? "",
                               friendNetids: Array.from(new Set([...(current?.friendNetids ?? []), active.netid])),
                             },
                           });
@@ -836,7 +881,9 @@ export function FriendsView() {
             </ul>
           </>
         ) : (
-          <p className="empty">Add a friend to see the trips they chose to share.</p>
+          <div className="empty-card">
+            <p>Your friends' trips show up here once they accept your request.</p>
+          </div>
         )}
       </section>
     </div>

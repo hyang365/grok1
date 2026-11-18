@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ME } from "../data";
+import { useMe } from "../account/account";
 import { reviews as reviewApi, useReviewStore } from "../reviews/store";
 import { useTripTable } from "../store";
 import type { ProfileTab } from "../types";
@@ -30,7 +30,8 @@ export function initials(name: string) {
 
 export function ProfileMenu() {
   const { state, dispatch } = useTripTable();
-  const { reviews, session, shared } = useReviewStore();
+  const { reviews, session, shared, google } = useReviewStore();
+  const me = useMe();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -63,20 +64,34 @@ export function ProfileMenu() {
         className={state.view === "profile" ? "pf-avatar active" : "pf-avatar"}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Profile and settings"
+        aria-label={me.signedIn ? "Profile and settings" : "Sign in and settings"}
         onClick={() => setOpen((v) => !v)}
       >
-        {initials(ME.name)}
+        {me.signedIn ? initials(me.name) : <span className="pf-guest">Sign in</span>}
       </button>
       {open ? (
         <div className="pf-drop" role="menu">
           <div className="pf-who">
-            <span className="pf-avatar big">{initials(ME.name)}</span>
+            <span className="pf-avatar big">{me.signedIn ? initials(me.name) : "?"}</span>
             <div>
-              <strong>{ME.name}</strong>
-              <span>{session?.email && shared ? session.email : `${ME.netid} · Class of ${ME.year}`}</span>
+              <strong>{me.name}</strong>
+              <span>{me.signedIn ? me.email : "Browsing as a guest. Nothing is shared."}</span>
             </div>
           </div>
+          {!me.signedIn && shared ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="pf-signin"
+              onClick={() => {
+                setOpen(false);
+                if (google) void reviewApi.signInWithGoogle();
+                else go("settings");
+              }}
+            >
+              <span>{google ? "Sign in with Yale Google" : "Sign in with Yale email"}</span>
+            </button>
+          ) : null}
           <button type="button" role="menuitem" onClick={() => go("history")}>
             <span>Trip history</span>
             <small>{pastCount}</small>
@@ -113,7 +128,7 @@ export function ProfileMenu() {
           </button>
           <hr />
           {shared ? (
-            session ? (
+            me.signedIn ? (
               <button
                 type="button"
                 role="menuitem"
@@ -124,11 +139,7 @@ export function ProfileMenu() {
               >
                 <span>Sign out</span>
               </button>
-            ) : (
-              <button type="button" role="menuitem" onClick={() => go("settings")}>
-                <span>Sign in with Yale email</span>
-              </button>
-            )
+            ) : null
           ) : null}
           <a role="menuitem" href={issueUrl("bug", state.view)} target="_blank" rel="noreferrer" onClick={() => setOpen(false)}>
             <span>Report a bug</span>

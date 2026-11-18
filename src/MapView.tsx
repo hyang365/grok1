@@ -313,7 +313,7 @@ export function MapView() {
 
   useEffect(() => {
     paintRef.current();
-  }, [state.theme, state.season, state.filters, state.showFriends, state.friendNetids, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, passed, friends, maxCountry, plansVersion]);
+  }, [state.theme, state.season, state.filters, state.showFriends, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, passed, friends, maxCountry, plansVersion]);
 
   useEffect(() => {
     zoomRef.current();

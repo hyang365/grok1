@@ -1,4 +1,4 @@
-import type { Person, Place, Stay } from "./types";
+import type { Place, Stay } from "./types";
 
 
 type Spec = {
@@ -1200,139 +1200,6 @@ export const PLACES: Place[] = [
 export const PLACE_BY_ID = new Map(PLACES.map((place) => [place.id, place]));
 export const COUNTRY_BY_ISO = new Map(PLACES.filter((place) => place.kind === "country").map((place) => [place.iso, place]));
 
-export const ME: Person = {
-  netid: "hyang",
-  name: "Hunter Yang",
-  college: "Yale College",
-  year: "2027",
-  trips: [],
-};
-
-export const DIRECTORY: Person[] = [
-  {
-    netid: "jalva",
-    name: "Jordan Alvarez",
-    college: "Pierson",
-    year: "2026",
-    trips: [
-      { placeId: "pr", season: "spring", start: "2026-03-07", end: "2026-03-15", note: "Ocean Park house" },
-      { placeId: "austin", season: "weekend", start: "2026-04-10", end: "2026-04-12", note: "Barbecue and a show" },
-    ],
-  },
-  {
-    netid: "cpark",
-    name: "Chris Park",
-    college: "Silliman",
-    year: "2027",
-    trips: [
-      { placeId: "pr", season: "spring", start: "2026-03-08", end: "2026-03-14", note: "Joining the suite midweek" },
-      { placeId: "seoul", season: "summer", start: "2026-06-10", end: "2026-06-24" },
-    ],
-  },
-  {
-    netid: "erossi",
-    name: "Elena Rossi",
-    college: "Ezra Stiles",
-    year: "2026",
-    trips: [
-      { placeId: "it", season: "summer", start: "2026-05-28", end: "2026-06-18", note: "Rome, then the coast" },
-      { placeId: "amalfi", season: "summer", start: "2026-06-08", end: "2026-06-14" },
-    ],
-  },
-  {
-    netid: "mchen",
-    name: "Maya Chen",
-    college: "Berkeley",
-    year: "2027",
-    trips: [
-      { placeId: "kyoto", season: "summer", start: "2026-06-02", end: "2026-06-16" },
-      { placeId: "lisbon", season: "summer", start: "2026-05-20", end: "2026-05-28" },
-    ],
-  },
-  {
-    netid: "pshah",
-    name: "Priya Shah",
-    college: "Timothy Dwight",
-    year: "2028",
-    trips: [
-      { placeId: "is", season: "summer", start: "2026-06-06", end: "2026-06-18" },
-      { placeId: "nyc", season: "weekend", start: "2026-04-10", end: "2026-04-12" },
-    ],
-  },
-  {
-    netid: "sokon",
-    name: "Sam Okonkwo",
-    college: "Saybrook",
-    year: "2027",
-    trips: [
-      { placeId: "cdmx", season: "spring", start: "2026-03-07", end: "2026-03-14" },
-      { placeId: "nola", season: "spring", start: "2026-03-20", end: "2026-03-24" },
-    ],
-  },
-  {
-    netid: "aweiss",
-    name: "Ava Weiss",
-    college: "Trumbull",
-    year: "2026",
-    trips: [
-      { placeId: "paris", season: "summer", start: "2026-06-01", end: "2026-06-12" },
-      { placeId: "bigsur", season: "summer", start: "2026-07-03", end: "2026-07-07" },
-    ],
-  },
-  {
-    netid: "lnguyen",
-    name: "Linh Nguyen",
-    college: "Benjamin Franklin",
-    year: "2028",
-    trips: [
-      { placeId: "vn", season: "summer", start: "2026-06-15", end: "2026-06-29" },
-      { placeId: "nyc", season: "weekend", start: "2026-04-17", end: "2026-04-19" },
-    ],
-  },
-  {
-    netid: "dokoye",
-    name: "Daniel Okoye",
-    college: "Davenport",
-    year: "2027",
-    trips: [
-      { placeId: "london", season: "summer", start: "2026-06-08", end: "2026-06-16" },
-      { placeId: "dc", season: "weekend", start: "2026-04-17", end: "2026-04-19" },
-    ],
-  },
-  {
-    netid: "rpatel",
-    name: "Rohan Patel",
-    college: "Grace Hopper",
-    year: "2026",
-    trips: [
-      { placeId: "tokyo", season: "summer", start: "2026-06-05", end: "2026-06-19" },
-      { placeId: "is", season: "summer", start: "2026-07-01", end: "2026-07-10" },
-    ],
-  },
-  {
-    netid: "sbrooks",
-    name: "Sofia Brooks",
-    college: "Pauli Murray",
-    year: "2027",
-    trips: [
-      { placeId: "oaxaca", season: "spring", start: "2026-03-08", end: "2026-03-15" },
-      { placeId: "miami", season: "spring", start: "2026-03-07", end: "2026-03-12" },
-    ],
-  },
-  {
-    netid: "jkim",
-    name: "June Kim",
-    college: "Branford",
-    year: "2028",
-    trips: [
-      { placeId: "seoul", season: "summer", start: "2026-06-12", end: "2026-06-26" },
-      { placeId: "montreal", season: "fall", start: "2026-10-16", end: "2026-10-19" },
-    ],
-  },
-];
-
-export const SUGGESTED_NETIDS = ["mchen", "pshah", "sokon", "aweiss", "rpatel", "jkim"];
-
 export function assertData(): void {
   const ids = new Set<string>();
   const isos = new Set<string>();
@@ -1345,12 +1212,6 @@ export function assertData(): void {
     }
     if (entry.parentId && !PLACES.some((candidate) => candidate.id === entry.parentId)) {
       throw new Error(`Missing parent for ${entry.id}`);
-    }
-  }
-  for (const person of DIRECTORY) {
-    if (person.netid === ME.netid) throw new Error("Directory includes the signed-in student");
-    for (const trip of person.trips) {
-      if (!ids.has(trip.placeId)) throw new Error(`Unknown place ${trip.placeId} on ${person.netid}`);
     }
   }
 }

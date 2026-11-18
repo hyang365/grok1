@@ -37,7 +37,8 @@ function load(): FlightState {
     };
     merged.gateways = Array.isArray(data.gateways) && data.gateways.length ? data.gateways.filter((g) => ALL_GATEWAYS.includes(g)) : ALL_GATEWAYS;
     if (!merged.gateways.length) merged.gateways = ALL_GATEWAYS;
-    merged.crew = Array.isArray(data.crew) ? data.crew : [];
+    // Crew ids are account ids (uuids); drop sample-friend netids from older versions.
+    merged.crew = Array.isArray(data.crew) ? data.crew.filter((id: unknown) => typeof id === "string" && /^[0-9a-f-]{36}$/.test(id)) : [];
     return merged;
   } catch {
     return { ...defaults };

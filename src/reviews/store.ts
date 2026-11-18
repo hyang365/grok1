@@ -28,12 +28,35 @@ type Snapshot = {
   shared: boolean;
   /** Whether "Sign in with Google" is switched on in Supabase (checked at load). */
   google: boolean;
+  /** A sign-in that came back with an error (shown once as a banner). */
+  authError: string | null;
 };
+
+/** Google or Supabase send failed sign-ins back as ?error=…&error_description=… (or in the #hash). */
+function readAuthError(): string | null {
+  if (typeof location === "undefined") return null;
+  const params = new URLSearchParams(location.search);
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const code = params.get("error") ?? hash.get("error");
+  if (!code) return null;
+  const detail = (params.get("error_description") ?? hash.get("error_description") ?? "").replace(/\+/g, " ");
+  try {
+    history.replaceState(null, "", location.pathname);
+  } catch {
+    /* ignore */
+  }
+  if (/client secret|invalid_client|unable to exchange/i.test(detail)) {
+    return "Google sign-in isn't finished being set up on our side. Try again soon, or use the email link instead.";
+  }
+  if (/access_denied/i.test(code)) return "Sign-in was cancelled.";
+  if (/org_internal|not.*organization/i.test(detail)) return "Use your @yale.edu Google account to sign in.";
+  return `Sign-in didn't work: ${detail || code}`;
+}
 
 const LOCAL_KEY = "triptable-reviews-v2";
 const LOCAL_USER = "local-device";
 
-let snap: Snapshot = { reviews: [], session: null, loading: SHARED, error: null, version: 0, shared: SHARED, google: false };
+let snap: Snapshot = { reviews: [], session: null, loading: SHARED, error: null, version: 0, shared: SHARED, google: false, authError: readAuthError() };
 let useLocal = !SHARED;
 
 function goLocal() {
@@ -132,6 +155,7 @@ init();
 export type Draft = Omit<Review, "id" | "userId" | "createdAt">;
 
 export const reviews = {
+  clearAuthError: () => emit({ authError: null }),
   subscribe(fn: () => void) {
     listeners.add(fn);
     return () => {

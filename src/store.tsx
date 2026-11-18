@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type Dispatch, type ReactNode } from "react";
-import { DIRECTORY, ME, PLACE_BY_ID } from "./data";
+import { PLACE_BY_ID } from "./data";
+import { useAccount } from "./account/account";
 import { useReviewStore } from "./reviews/store";
 import { usePlans } from "./live/plans";
 import { passesFilters, sortScore, visitCount } from "./logic";
@@ -17,7 +18,13 @@ export const DEFAULT_FILTERS: Filters = {
   scope: "all",
 };
 
-const STORAGE_KEY = "triptable-v1";
+const STORAGE_KEY = "triptable-v2";
+// v1 held demo trips and sample friends; start everyone fresh as a guest.
+try {
+  localStorage.removeItem("triptable-v1");
+} catch {
+  /* storage blocked */
+}
 
 export type State = {
   theme: ThemeName;
@@ -29,7 +36,6 @@ export type State = {
   selectedId: string | null;
   emptyGeo: { iso: string; name: string } | null;
   showFriends: boolean;
-  friendNetids: string[];
   trips: Trip[];
   friendFocus: string | null;
   toast: string | null;
@@ -60,19 +66,8 @@ function defaultState(): State {
     selectedId: null,
     emptyGeo: null,
     showFriends: true,
-    friendNetids: ["jalva", "cpark", "erossi"],
-    trips: [
-      {
-        id: "trip-pr",
-        placeId: "pr",
-        season: "spring",
-        start: "2026-03-07",
-        end: "2026-03-15",
-        note: "Spring break. Ocean Park house, mornings in Old San Juan.",
-        friendNetids: ["jalva", "cpark"],
-      },
-    ],
-    friendFocus: "jalva",
+    trips: [],
+    friendFocus: null,
     toast: null,
     homeTick: 0,
     mapMode: "travel",
@@ -145,9 +140,6 @@ function loadState(): State {
       filters,
       selectedId: data.selectedId && PLACE_BY_ID.has(data.selectedId) ? data.selectedId : null,
       showFriends: data.showFriends !== false,
-      friendNetids: Array.isArray(data.friendNetids)
-        ? data.friendNetids.filter((id) => DIRECTORY.some((person) => person.netid === id))
-        : base.friendNetids,
       trips: Array.isArray(data.trips) ? data.trips.map(sanitizeTrip).filter((trip): trip is Trip => trip !== null) : base.trips,
       friendFocus: typeof data.friendFocus === "string" ? data.friendFocus : base.friendFocus,
       toast: null,
@@ -177,8 +169,6 @@ export type Action =
   | { type: "selectEmpty"; iso: string; name: string }
   | { type: "world" }
   | { type: "toggleFriends" }
-  | { type: "addFriend"; netid: string }
-  | { type: "removeFriend"; netid: string }
   | { type: "focusFriend"; netid: string }
   | { type: "saveTrip"; trip: Trip; message?: string }
   | { type: "removeTrip"; id: string }
@@ -228,20 +218,6 @@ function reducer(state: State, action: Action): State {
       };
     case "toggleFriends":
       return { ...state, showFriends: !state.showFriends };
-    case "addFriend":
-      if (state.friendNetids.includes(action.netid)) return state;
-      return { ...state, friendNetids: [...state.friendNetids, action.netid], friendFocus: action.netid, toast: "Friend added" };
-    case "removeFriend":
-      return {
-        ...state,
-        friendNetids: state.friendNetids.filter((id) => id !== action.netid),
-        friendFocus: state.friendFocus === action.netid ? null : state.friendFocus,
-        trips: state.trips.map((trip) => ({
-          ...trip,
-          friendNetids: trip.friendNetids.filter((id) => id !== action.netid),
-        })),
-        toast: "Friend removed",
-      };
     case "focusFriend":
       return { ...state, friendFocus: action.netid, view: "friends" };
     case "saveTrip": {
@@ -357,10 +333,6 @@ export function useCatalog(): {
 }
 
 export function useFriends(): Person[] {
-  const { state } = useTripTable();
-  return state.friendNetids
-    .map((netid) => DIRECTORY.find((person) => person.netid === netid))
-    .filter((person): person is Person => Boolean(person));
+  return useAccount().friends;
 }
 
-export { ME };

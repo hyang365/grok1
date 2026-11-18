@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DIRECTORY, ME, PLACE_BY_ID, PLACES } from "../data";
+import { PLACE_BY_ID, PLACES } from "../data";
+import { account } from "../account/account";
+
+const SELF = "me";
 import { defaultWindow, formatMoney, formatRange, travelGuidance } from "../logic";
 import { useFriends, useTripTable } from "../store";
 import type { FlightLeg, GroupFlight, Place, Season, Trip } from "../types";
@@ -101,12 +104,12 @@ function defaultDates(place: Place, trips: Trip[], season: string): [string, str
 }
 
 function travelersOf(trip: Trip): string[] {
-  return [ME.netid, ...trip.friendNetids.filter((id) => id !== ME.netid)];
+  return [SELF, ...trip.friendNetids.filter((id) => id !== SELF)];
 }
 
 function nameOf(netid: string): string {
-  if (netid === ME.netid) return "You";
-  return DIRECTORY.find((p) => p.netid === netid)?.name ?? netid;
+  if (netid === SELF) return "You";
+  return account.get().friends.find((p) => p.netid === netid)?.name ?? "A former friend";
 }
 
 function timeLabel(hhmm: string): string {
@@ -154,11 +157,12 @@ export function FlightsView() {
   const guidance = place ? travelGuidance(place.iso) : null;
   const blocked = guidance?.level === "blocked";
   const trip = place ? state.trips.find((t) => t.placeId === place.id) : undefined;
-  const crewSize = fs.crew.length + 1;
+  const friends = useFriends();
+  const crewSize = fs.crew.filter((id) => friends.some((f) => f.netid === id)).length + 1;
 
   const overlapping = useMemo(() => {
     if (!place) return [];
-    return DIRECTORY.flatMap((person) =>
+    return friends.flatMap((person) =>
       person.trips
         .filter((t) => {
           const p = PLACE_BY_ID.get(t.placeId);
@@ -167,9 +171,9 @@ export function FlightsView() {
           const [s, e] = rollForward(t.start, t.end);
           return daysBetween(s, back) >= 0 && daysBetween(out, e) >= 0;
         })
-        .map((t) => ({ person, trip: t, isFriend: state.friendNetids.includes(person.netid) })),
-    ).sort((a, b) => Number(b.isFriend) - Number(a.isFriend));
-  }, [place, out, back, state.friendNetids]);
+        .map((t) => ({ person, trip: t, isFriend: true })),
+    );
+  }, [place, out, back, friends]);
 
   const matches = query.trim()
     ? SEARCHABLE.filter((p) => {
@@ -551,7 +555,7 @@ function GroupFlightCard({ place, dest, trip, out, back }: { place: Place; dest:
       outbound: { ...outLeg, flight: outNo, from: outLeg.from.toUpperCase(), to: outLeg.to.toUpperCase() },
       ret: retNo ? { ...retLeg, flight: retNo, from: retLeg.from.toUpperCase(), to: retLeg.to.toUpperCase() } : null,
       link: link.trim(),
-      setBy: ME.netid,
+      setBy: SELF,
       booked: [],
       setAt: new Date().toISOString(),
     };
