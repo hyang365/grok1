@@ -32,7 +32,7 @@ https://hyang365.github.io/grok1/
 The site is connected to the Supabase project `triptable` (`yzldywaosqijduvtqvnb`). Its URL and public anon key are built into `src/reviews/backend.ts`; they're meant to be public, and row-level security in `supabase/schema.sql` protects the data.
 
 - **Live transit relay:** deployed as the `transit` edge function (`supabase/functions/transit`). Each deploy logs a check of every feed in the "Publish GitHub Pages" run.
-- **Reviews:** need the tables in `supabase/schema.sql`. Until they exist the site quietly saves reviews on each device. To create them, open the [SQL editor](https://supabase.com/dashboard/project/yzldywaosqijduvtqvnb/sql/new), paste `supabase/schema.sql`, and run it.
+- **Reviews:** tables and row-level security from `supabase/schema.sql` are applied. Anyone can read; only signed-in @yale.edu accounts can post, edit or delete their own reviews; reports go to `review_reports` for you to moderate in the dashboard.
 - **Sign-in links:** in [Authentication → URL Configuration](https://supabase.com/dashboard/project/yzldywaosqijduvtqvnb/auth/url-configuration), set Site URL to `https://hyang365.github.io/grok1/` and add it under Redirect URLs, or sign-in links will point at localhost.
 - Supabase's built-in email sender is limited to a few sign-in emails an hour. For real use, add your own SMTP under Authentication → Emails.
 

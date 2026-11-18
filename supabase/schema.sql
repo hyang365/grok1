@@ -1,4 +1,5 @@
--- TripTable shared database. Run once in the Supabase SQL editor (Dashboard → SQL → New query).
+-- TripTable shared database. Applied to project yzldywaosqijduvtqvnb as migration reviews_and_reports.
+-- To rebuild elsewhere, run once in the Supabase SQL editor (Dashboard → SQL → New query).
 -- Anyone can read reviews. Only signed-in @yale.edu accounts can write, and only their own.
 
 create or replace function public.valid_ratings(r jsonb) returns boolean
@@ -56,7 +57,8 @@ create table if not exists public.review_reports (
 );
 
 create index if not exists review_reports_review_id_idx on public.review_reports (review_id);
-create index if not exists reviews_target_idx on public.reviews (target_type, target_id);
+create index if not exists review_reports_reporter_idx on public.review_reports (reporter);
+create index if not exists reviews_user_id_idx on public.reviews (user_id);
 
 alter table public.review_reports enable row level security;
 
