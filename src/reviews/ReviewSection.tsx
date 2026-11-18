@@ -209,11 +209,6 @@ function ReviewForm({
       className="rv-form"
       onSubmit={async (e) => {
         e.preventDefault();
-        const text = body.trim();
-        if (text.length > 0 && text.length < 20) {
-          setError("Add a bit more (20+ characters), or clear the box to post just your rating.");
-          return;
-        }
         setBusy(true);
         const err = await reviews.save({ targetType, targetId, author: "Yale student", term, year, ratings, body: body.trim() });
         setBusy(false);
