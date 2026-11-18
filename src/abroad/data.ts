@@ -24,6 +24,7 @@ export type Program = {
   lng?: number;
 };
 
+import { SUMMER_PROGRAMS } from "./summerPrograms";
 import { TERM_PROGRAMS } from "./termPrograms";
 
 const YSS = "https://studyabroad.yale.edu/programs/";
@@ -99,9 +100,10 @@ export const PROGRAMS: Program[] = [
     kind: "nonyale-summer",
     terms: ["Summer"],
     subject: "Business, economics and Asian studies",
-    url: "https://studyabroad.yale.edu/node/1400",
+    url: "https://studyabroad.yale.edu/programs/singapore-management-university-global-summer",
     note: "Apply directly or through CIEE. Up to two transfer credits per summer.",
   },
+  ...SUMMER_PROGRAMS,
   ...TERM_PROGRAMS,
 ];
 

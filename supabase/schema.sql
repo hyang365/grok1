@@ -2,7 +2,7 @@
 -- Anyone can read reviews. Only signed-in @yale.edu accounts can write, and only their own.
 
 create or replace function public.valid_ratings(r jsonb) returns boolean
-language sql immutable as $$
+language sql immutable set search_path = '' as $$
   select jsonb_typeof(r) = 'object'
      and not exists (
        select 1 from jsonb_each(r) e
@@ -11,8 +11,8 @@ language sql immutable as $$
 $$;
 
 create or replace function public.is_yale() returns boolean
-language sql stable as $$
-  select coalesce(auth.jwt() ->> 'email', '') ~* '^[^@[:space:]]+@yale\.edu$'
+language sql stable set search_path = '' as $$
+  select coalesce((select auth.jwt()) ->> 'email', '') ~* '^[^@[:space:]]+@yale\.edu$'
 $$;
 
 create table if not exists public.reviews (
@@ -36,14 +36,14 @@ create policy "reviews are public" on public.reviews for select using (true);
 
 drop policy if exists "yale students post their own" on public.reviews;
 create policy "yale students post their own" on public.reviews for insert to authenticated
-  with check (user_id = auth.uid() and public.is_yale());
+  with check (user_id = (select auth.uid()) and public.is_yale());
 
 drop policy if exists "edit own" on public.reviews;
 create policy "edit own" on public.reviews for update to authenticated
-  using (user_id = auth.uid()) with check (user_id = auth.uid() and public.is_yale());
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()) and public.is_yale());
 
 drop policy if exists "delete own" on public.reviews;
-create policy "delete own" on public.reviews for delete to authenticated using (user_id = auth.uid());
+create policy "delete own" on public.reviews for delete to authenticated using (user_id = (select auth.uid()));
 
 -- Reports go to a table only the project owner can read (no select policy), for moderation.
 create table if not exists public.review_reports (
@@ -55,8 +55,11 @@ create table if not exists public.review_reports (
   unique (review_id, reporter)
 );
 
+create index if not exists review_reports_review_id_idx on public.review_reports (review_id);
+create index if not exists reviews_target_idx on public.reviews (target_type, target_id);
+
 alter table public.review_reports enable row level security;
 
 drop policy if exists "yale students report" on public.review_reports;
 create policy "yale students report" on public.review_reports for insert to authenticated
-  with check (reporter = auth.uid() and public.is_yale());
+  with check (reporter = (select auth.uid()) and public.is_yale());

@@ -7,8 +7,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import { FALLBACK_CT_STOPS, FALLBACK_MNR_STOPS } from "./fallback";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+import { SUPABASE_ANON_KEY as SUPABASE_KEY, SUPABASE_URL } from "../reviews/backend";
 const PROXY = SUPABASE_URL ? `${SUPABASE_URL.replace(/\/$/, "")}/functions/v1/transit` : null;
 
 const CT_JSON = {

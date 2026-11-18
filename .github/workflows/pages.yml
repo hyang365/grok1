@@ -37,6 +37,21 @@ jobs:
           GITHUB_PAGES: "true"
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+      - name: Check live transit relay and database (non-fatal)
+        continue-on-error: true
+        env:
+          SB_URL: https://yzldywaosqijduvtqvnb.supabase.co
+          SB_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl6bGR5d2Fvc3FpamR1dnRxdm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5Nzc4NDcsImV4cCI6MjExMDU1Mzg0N30.UDiCpTJu96YZzHxQ5Tx6jkAjuAC449IcrRjJyW6lxLs
+        run: |
+          for f in ct-trips ct-vehicles mnr amtrak-station; do
+            body=$(curl -sS -m 30 -H "Authorization: Bearer $SB_KEY" -H "apikey: $SB_KEY" "$SB_URL/functions/v1/transit?feed=$f" || echo '{"error":"curl failed"}')
+            echo "$f: $(echo "$body" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);if(j.error){console.log("ERROR "+j.error);return}const n=(j.entity||[]).length;console.log(n?`${n} entities`:Object.keys(j).slice(0,3).join(",")+" "+s.length+" bytes")}catch(e){console.log("not json: "+s.slice(0,120))}})')"
+          done
+          echo "direct CORS headers:"
+          curl -sS -m 20 -o /dev/null -D - -H "Origin: https://hyang365.github.io" https://cttprdtmgtfs.ctttrpcloud.com/TMGTFSRealTimeWebService/TripUpdate/TripUpdates.json | grep -i "^access-control\|^HTTP" || true
+          curl -sS -m 20 -o /dev/null -D - -H "Origin: https://hyang365.github.io" https://api-v3.amtraker.com/v3/stations/NHV | grep -i "^access-control\|^HTTP" || true
+          curl -sS -m 20 -o /dev/null -D - -H "Origin: https://hyang365.github.io" "https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/mnr%2Fgtfs-mnr" | grep -i "^access-control\|^HTTP" || true
+          echo "reviews table: $(curl -sS -m 20 -H "apikey: $SB_KEY" "$SB_URL/rest/v1/reviews?select=id&limit=1")"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

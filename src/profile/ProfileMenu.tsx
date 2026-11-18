@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { ME } from "../data";
-import { SHARED } from "../reviews/backend";
 import { reviews as reviewApi, useReviewStore } from "../reviews/store";
 import { useTripTable } from "../store";
 import type { ProfileTab } from "../types";
@@ -31,7 +30,7 @@ export function initials(name: string) {
 
 export function ProfileMenu() {
   const { state, dispatch } = useTripTable();
-  const { reviews, session } = useReviewStore();
+  const { reviews, session, shared } = useReviewStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -75,7 +74,7 @@ export function ProfileMenu() {
             <span className="pf-avatar big">{initials(ME.name)}</span>
             <div>
               <strong>{ME.name}</strong>
-              <span>{session?.email && SHARED ? session.email : `${ME.netid} · Class of ${ME.year}`}</span>
+              <span>{session?.email && shared ? session.email : `${ME.netid} · Class of ${ME.year}`}</span>
             </div>
           </div>
           <button type="button" role="menuitem" onClick={() => go("history")}>
@@ -104,7 +103,7 @@ export function ProfileMenu() {
             <span>Settings</span>
           </button>
           <hr />
-          {SHARED ? (
+          {shared ? (
             session ? (
               <button
                 type="button"

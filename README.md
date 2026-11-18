@@ -22,31 +22,23 @@ https://hyang365.github.io/grok1/
   - **Lock the group flight:** enter the flight numbers someone picked on Google Flights. They're saved on the trip with a copyable group-chat message, an exact-flight search link, flight status, and a "who's booked" checklist.
   - **Boycott Avelo** with one switch (hides Tweed, and reminds you to untick Avelo on Google Flights).
 - **Itinerary:** your trips, flights and friends in one place.
-- **Study Abroad:** every Yale-designated semester and full-year program (134), plus Yale Summer Session Abroad and Yale in London, each with the grants you can apply for (Summer Experience Grant, Light, Gilman, Boren and more) and student reviews. The map has a **Travel / Study abroad** switch; in study abroad mode the top menu picks Fall semester, Spring semester or Summer and the map shows only programs offered then.
+- **Study Abroad:** every program in Yale's study abroad database: 134 semester and full-year programs, 94 non-Yale summer programs, plus Yale Summer Session Abroad and Yale in London, each with the grants you can apply for (Summer Experience Grant, Light, Gilman, Boren and more) and student reviews. The map has a **Travel / Study abroad** switch; in study abroad mode the top menu picks Fall semester, Spring semester or Summer and the map shows only programs offered then.
 - **Transit:** live CTtransit buses near campus (arrival boards and a live map), plus Metro-North and Amtrak departures from New Haven. Next trains also show on the Flights page.
 - **Profile** (top right): trip history with "log a past trip", a bucket list of places and programs (☆ on any place or program), your reviews, settings, data export, and report-a-bug / suggest-a-feature links that open a prefilled GitHub issue.
 - **Real reviews:** places and programs are rated only by real student reviews. There are no seeded reviews. Posting requires an @yale.edu email.
 
-## Turning on shared reviews (one-time, ~10 minutes)
+## Database (Supabase)
 
-Until this is done, reviews are saved only in each visitor's browser.
+The site is connected to the Supabase project `triptable` (`yzldywaosqijduvtqvnb`). Its URL and public anon key are built into `src/reviews/backend.ts`; they're meant to be public, and row-level security in `supabase/schema.sql` protects the data.
 
-1. Create a free project at [supabase.com](https://supabase.com).
-2. In the project's SQL editor, run `supabase/schema.sql`.
-3. Authentication → URL Configuration: set Site URL to `https://hyang365.github.io/grok1/` and add it under Redirect URLs.
-4. Project Settings → API: copy the Project URL and the `anon` public key.
-5. In this repo: Settings → Secrets and variables → Actions → **Variables**: add `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
-6. Re-run the "Publish GitHub Pages" workflow. For the branch-served fallback, also run
-   `VITE_SUPABASE_URL=... VITE_SUPABASE_ANON_KEY=... npm run publish:fallback` and commit `published/` and `assets/`.
+- **Live transit relay:** deployed as the `transit` edge function (`supabase/functions/transit`). Each deploy logs a check of every feed in the "Publish GitHub Pages" run.
+- **Reviews:** need the tables in `supabase/schema.sql`. Until they exist the site quietly saves reviews on each device. To create them, open the [SQL editor](https://supabase.com/dashboard/project/yzldywaosqijduvtqvnb/sql/new), paste `supabase/schema.sql`, and run it.
+- **Sign-in links:** in [Authentication → URL Configuration](https://supabase.com/dashboard/project/yzldywaosqijduvtqvnb/auth/url-configuration), set Site URL to `https://hyang365.github.io/grok1/` and add it under Redirect URLs, or sign-in links will point at localhost.
+- Supabase's built-in email sender is limited to a few sign-in emails an hour. For real use, add your own SMTP under Authentication → Emails.
 
-## Turning on live transit everywhere
+## Live transit
 
-Some transit providers block requests straight from a browser. The site tries them directly first, then falls back to a tiny relay on the same Supabase project:
-
-1. Install the [Supabase CLI](https://supabase.com/docs/guides/cli) and run `supabase link` in this repo.
-2. `supabase functions deploy transit --no-verify-jwt`
-
-No other setup: the site finds the relay from `SUPABASE_URL`. Bus stop names, routes and destinations come from the official CTtransit and Metro-North schedules, which the Pages workflow downloads on every deploy (`scripts/build-transit.mjs`). Amtrak data comes from the community [Amtraker](https://amtraker.com) API.
+The site calls each transit provider directly first, then falls back to the `transit` relay. Bus stop names, routes and destinations come from the official CTtransit and Metro-North schedules, which the Pages workflow downloads on every deploy (`scripts/build-transit.mjs`). Amtrak data comes from the community [Amtraker](https://amtraker.com) API.
 
 Reported reviews land in the `review_reports` table for you to moderate in the Supabase dashboard.
 
@@ -55,7 +47,6 @@ Reported reviews land in the `review_reports` table for you to moderate in the S
 - Yalie counts, cohorts and history on the map and catalog (labeled "sample counts").
 - The friends directory and their trips (the NetIDs in Friends are fictional).
 - Ground-transport times and costs in `src/flights/engine.ts` are rough planning estimates.
-- Non-Yale summer programs aren't listed yet (Yale's database has about 100 more); the map's Summer view shows Yale-run summer programs and Yale in London.
 - Trip history, bucket list and settings are saved on your device until accounts are shared.
 - The group flight and booked checklist are saved on your device. Friends see them via the copied message until accounts are shared.
 - Stays: hotel names and rough prices, with no ratings.

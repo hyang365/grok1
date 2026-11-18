@@ -4,7 +4,6 @@ import { PROGRAMS } from "../abroad/data";
 import { flightStore, useFlights } from "../flights/flightStore";
 import { formatRange, seasonLabel } from "../logic";
 import { AUTHOR_KEY, COLLEGES, SignInBox } from "../reviews/ReviewSection";
-import { SHARED } from "../reviews/backend";
 import { reviews as reviewApi, useReviewStore } from "../reviews/store";
 import { useFriends, useTripTable } from "../store";
 import type { ProfileTab, Trip } from "../types";
@@ -20,7 +19,7 @@ const TABS: { id: ProfileTab; label: string }[] = [
 
 export function ProfileView() {
   const { state, dispatch } = useTripTable();
-  const { reviews, session } = useReviewStore();
+  const { reviews, session, shared } = useReviewStore();
   const past = state.trips.filter(isPast).sort((a, b) => b.start.localeCompare(a.start));
   const countries = new Set(past.map(countryOf).filter(Boolean));
   const mine = session ? reviews.filter((r) => r.userId === session.userId) : [];
@@ -33,7 +32,7 @@ export function ProfileView() {
           <h2>{ME.name}</h2>
           <p className="fine">
             {ME.netid} · {ME.college} · Class of {ME.year}
-            {session?.email && SHARED ? ` · ${session.email}` : ""}
+            {session?.email && shared ? ` · ${session.email}` : ""}
           </p>
         </div>
         <dl className="pf-stats">
@@ -370,6 +369,7 @@ function MyReviews() {
 
 function Settings() {
   const { state, dispatch } = useTripTable();
+  const { shared } = useReviewStore();
   const fs = useFlights();
   const saved = (() => {
     try {
@@ -395,7 +395,7 @@ function Settings() {
     <section className="pf-section pf-settings">
       <div className="pf-card">
         <h3>Account</h3>
-        {SHARED ? <SignInBox /> : <p className="fine">Accounts turn on once the site's database is connected. Until then everything is saved in this browser.</p>}
+        {shared ? <SignInBox /> : <p className="fine">Accounts turn on once the site's database is connected. Until then everything is saved in this browser.</p>}
       </div>
       <div className="pf-card">
         <h3>How your reviews are signed</h3>

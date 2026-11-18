@@ -24,12 +24,21 @@ type Snapshot = {
   loading: boolean;
   error: string | null;
   version: number;
+  /** True when reviews are shared through the database; false = saved on this device only. */
+  shared: boolean;
 };
 
 const LOCAL_KEY = "triptable-reviews-v2";
 const LOCAL_USER = "local-device";
 
-let snap: Snapshot = { reviews: [], session: null, loading: SHARED, error: null, version: 0 };
+let snap: Snapshot = { reviews: [], session: null, loading: SHARED, error: null, version: 0, shared: SHARED };
+let useLocal = !SHARED;
+
+function goLocal() {
+  // Database reachable but not set up yet (tables missing): keep the site working on-device.
+  useLocal = true;
+  emit({ shared: false, loading: false, error: null, reviews: readLocal(), session: { userId: LOCAL_USER, email: "" } });
+}
 const listeners = new Set<() => void>();
 
 function emit(patch: Partial<Snapshot>) {
@@ -82,8 +91,9 @@ const fromRow = (r: Row): Review => ({
 });
 
 async function refresh() {
-  if (!supabase) return;
+  if (!supabase || useLocal) return;
   const { data, error } = await supabase.from("reviews").select("*").order("created_at", { ascending: false }).limit(5000);
+  if (error && (error.code === "PGRST205" || error.code === "42P01" || /does not exist|could not find the table/i.test(error.message))) return goLocal();
   if (error) emit({ loading: false, error: "Couldn't load reviews. Try again in a minute." });
   else emit({ loading: false, error: null, reviews: (data as Row[]).map(fromRow) });
 }
@@ -96,10 +106,12 @@ function init() {
     return;
   }
   supabase.auth.getSession().then(({ data }) => {
+    if (useLocal) return;
     const user = data.session?.user;
     emit({ session: user ? { userId: user.id, email: user.email ?? "" } : null });
   });
   supabase.auth.onAuthStateChange((_event, session) => {
+    if (useLocal) return;
     const user = session?.user;
     emit({ session: user ? { userId: user.id, email: user.email ?? "" } : null });
   });
@@ -120,7 +132,7 @@ export const reviews = {
   get: () => snap,
 
   async signIn(email: string): Promise<string | null> {
-    if (!supabase) return "Sign-in isn't connected yet.";
+    if (!supabase || useLocal) return "Sign-in isn't connected yet.";
     const clean = email.trim().toLowerCase();
     if (!YALE_EMAIL.test(clean)) return "Use your @yale.edu email.";
     const { error } = await supabase.auth.signInWithOtp({
@@ -137,7 +149,7 @@ export const reviews = {
   async save(draft: Draft): Promise<string | null> {
     const session = snap.session;
     if (!session) return "Sign in with your Yale email to post.";
-    if (!supabase) {
+    if (!supabase || useLocal) {
       const review: Review = { ...draft, id: `local-${Date.now()}`, userId: LOCAL_USER, createdAt: new Date().toISOString() };
       const next = [review, ...snap.reviews.filter((r) => !(r.targetType === draft.targetType && r.targetId === draft.targetId && r.userId === LOCAL_USER))];
       writeLocal(next);
@@ -163,7 +175,7 @@ export const reviews = {
   },
 
   async remove(id: string): Promise<void> {
-    if (!supabase) {
+    if (!supabase || useLocal) {
       const next = snap.reviews.filter((r) => r.id !== id);
       writeLocal(next);
       emit({ reviews: next });
@@ -174,7 +186,7 @@ export const reviews = {
   },
 
   async report(id: string, reason: string): Promise<string | null> {
-    if (!supabase) return null;
+    if (!supabase || useLocal) return null;
     if (!snap.session) return "Sign in to report a review.";
     const { error } = await supabase.from("review_reports").insert({ review_id: id, reason });
     return error ? error.message : null;

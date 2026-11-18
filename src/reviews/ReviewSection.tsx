@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { SHARED } from "./backend";
 import { averageOf, reviews, reviewsFor, useReviewStore, type TargetType } from "./store";
 import "./reviews.css";
 
@@ -19,11 +18,11 @@ export function ScoreValue({ value }: { value: number | null }) {
 }
 
 export function SignInBox({ compact }: { compact?: boolean }) {
-  const { session } = useReviewStore();
+  const { session, shared } = useReviewStore();
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  if (!SHARED) return null;
+  if (!shared) return null;
   if (session) {
     return (
       <p className="fine rv-signed">
@@ -63,7 +62,7 @@ export function ReviewSection({
   terms: string[];
   prompt: string;
 }) {
-  const { reviews: all, session, loading, error } = useReviewStore();
+  const { reviews: all, session, loading, error, shared } = useReviewStore();
   const list = reviewsFor(all, targetType, targetId);
   const mine = session ? list.find((r) => r.userId === session.userId) : undefined;
   const [open, setOpen] = useState(false);
@@ -80,7 +79,7 @@ export function ReviewSection({
       </div>
       <p className="fine">
         {list.length === 0 ? "No reviews yet." : `${list.length} ${list.length === 1 ? "review" : "reviews"} from Yale students.`}
-        {!SHARED ? " Reviews are saved on this device only until the site's database is connected." : ""}
+        {!shared ? " Reviews are saved on this device only until the site's database is connected." : ""}
       </p>
       {error ? <p className="form-error">{error}</p> : null}
       {session ? (
@@ -115,7 +114,7 @@ export function ReviewSection({
             <div className="rv-actions">
               {session && r.userId === session.userId ? (
                 <button className="textlink danger" type="button" onClick={() => void reviews.remove(r.id)}>Delete</button>
-              ) : SHARED && session ? (
+              ) : shared && session ? (
                 <ReportButton id={r.id} />
               ) : null}
             </div>
