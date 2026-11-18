@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DIRECTORY, ME, PLACE_BY_ID, PLACES } from "../data";
-import { formatMoney, formatRange, travelGuidance } from "../logic";
+import { defaultWindow, formatMoney, formatRange, travelGuidance } from "../logic";
 import { useFriends, useTripTable } from "../store";
-import type { FlightLeg, GroupFlight, Place, Trip } from "../types";
+import type { FlightLeg, GroupFlight, Place, Season, Trip } from "../types";
 import {
   BREAKS,
   GATEWAYS,
@@ -95,8 +95,7 @@ function rollForward(start: string, end: string): [string, string] {
 function defaultDates(place: Place, trips: Trip[], season: string): [string, string] {
   const trip = trips.find((t) => t.placeId === place.id || t.placeId === place.parentId);
   if (trip) return rollForward(trip.start, trip.end);
-  const cohort = place.cohorts.find((c) => c.season === season) ?? place.cohorts[0];
-  if (cohort) return rollForward(cohort.start, cohort.end);
+  if (season) return defaultWindow(season as Season);
   const spring = BREAKS.find((b) => b.id === "spr");
   return spring ? [spring.start, addDays(spring.start, 7)] : [addDays(todayISO(), 30), addDays(todayISO(), 37)];
 }
@@ -257,6 +256,7 @@ export function FlightsView() {
 
       <section className="fl-toolbar">
         <CrewPicker />
+        <AveloToggle />
         <div className="fl-crew">
           <span className="field-label">Airports</span>
           {GATEWAYS.map((g) => {

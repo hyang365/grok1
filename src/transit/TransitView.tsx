@@ -155,7 +155,7 @@ export function TransitView() {
     <div className="tr-page">
       <header className="tr-top">
         <div>
-          <h2>Transit</h2>
+          <h2>Buses & trains</h2>
           <p className="lede">Live buses near campus and trains out of New Haven, refreshed every 30 seconds.</p>
         </div>
         <button type="button" className="fl-ghost" onClick={refreshTransit}>

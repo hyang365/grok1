@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { FindFlightsButton, GroupFlightSummary } from "./flights/FlightsView";
 import { DIRECTORY, ME, PLACE_BY_ID, PLACES, SUGGESTED_NETIDS } from "./data";
 import {
-  anonymousOverlap,
   continentsOf,
   CONTINENTS,
   FEATURES,
@@ -16,13 +15,14 @@ import {
   seasonLabel,
   travelGuidance,
   visitCount,
-  CURRENT_YEAR,
+  defaultWindow,
   SEASONS,
 } from "./logic";
 import { DEFAULT_FILTERS, useCatalog, useFriends, useTripTable } from "./store";
 import type { Place, Season, SortKey } from "./types";
 import { ReviewSection } from "./reviews/ReviewSection";
 import { PLACE_KEYS, useReviewStore } from "./reviews/store";
+import { seasonYear, useOverlap, usePlans } from "./live/plans";
 import { BucketButton } from "./profile/ProfileMenu";
 import { isPast, isUpcoming } from "./profile/trips";
 
@@ -94,6 +94,12 @@ export function TravelLinks({ name }: { name: string }) {
   );
 }
 
+function activeCount(f: typeof DEFAULT_FILTERS): number {
+  return (
+    Number(f.overall > 1) + Number(f.affordability > 1) + Number(f.safety > 1) + Number(f.beauty > 1) + Number(f.minYalies > 0) + f.features.length + f.continents.length
+  );
+}
+
 export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void }) {
   const { state, dispatch } = useTripTable();
   const { rows } = useCatalog();
@@ -101,10 +107,7 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
   return (
     <aside className={open ? "rail open" : "rail"}>
       <div className="rail-head">
-        <p className="lede">De-identified Yale travel. Friend plans stay between people you add.</p>
-        <button className="feature" type="button" onClick={() => { dispatch({ type: "select", id: "pr" }); onPick(); }}>
-          Puerto Rico, Spring Break 2025: 214 Yalies
-        </button>
+        <p className="lede">Where Yalies are going, counted from students' saved trips. Names stay private.</p>
         <div className="seg" role="tablist" aria-label="Map scope">
           {(
             [
@@ -136,7 +139,7 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
             value={state.sort}
             onChange={(event) => dispatch({ type: "setSort", sort: event.target.value as typeof state.sort })}
           >
-            <option value="yalies">Most Yalies</option>
+            <option value="yalies">Most plans</option>
             <option value="overall">Overall</option>
             <option value="affordability">Affordability</option>
             <option value="safety">Safety</option>
@@ -144,15 +147,20 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
           </select>
         </div>
       </div>
+      <details className="filters-drawer" open={!filtersAreDefault(filters) || undefined}>
+        <summary>
+          Filters
+          {activeCount(filters) ? <span className="badge">{activeCount(filters)}</span> : null}
+        </summary>
       <div className="filters">
         <Slider label="Overall" min={1} max={5} step={0.1} value={filters.overall} display={thresholdLabel(filters.overall)} onChange={(value) => dispatch({ type: "patchFilters", patch: { overall: value } })} />
         <Slider label="Affordability" min={1} max={5} step={0.1} value={filters.affordability} display={thresholdLabel(filters.affordability)} onChange={(value) => dispatch({ type: "patchFilters", patch: { affordability: value } })} />
         <Slider label="Safety" min={1} max={5} step={0.1} value={filters.safety} display={thresholdLabel(filters.safety)} onChange={(value) => dispatch({ type: "patchFilters", patch: { safety: value } })} />
         <Slider label="Beauty" min={1} max={5} step={0.1} value={filters.beauty} display={thresholdLabel(filters.beauty)} onChange={(value) => dispatch({ type: "patchFilters", patch: { beauty: value } })} />
         <Slider
-          label="Minimum Yalies"
+          label="Minimum plans"
           min={0}
-          max={200}
+          max={50}
           step={1}
           value={filters.minYalies}
           display={filters.minYalies === 0 ? "Any" : `≥ ${filters.minYalies}`}
@@ -196,8 +204,9 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
         >
           Reset filters
         </button>
-        <p className="fine">Sliders work like CourseTable. Drag to hide places under a rating. Public counts are aggregated. Names are not on this layer.</p>
+        <p className="fine">Rating sliders hide places rated below the value. Ratings come only from student reviews.</p>
       </div>
+      </details>
       <div className="list" role="listbox" aria-label="Places">
         {rows.length === 0 ? <p className="empty">Nothing clears these filters.</p> : null}
         {rows.map(({ place, count }) => {
@@ -217,11 +226,13 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
               <span className="row-name">{place.name}</span>
               <Rating value={scoreOf(place.id, "overall")} />
               <span className="row-meta">
-                {count.toLocaleString("en-US")} Yalies · {parent ? parent.name : place.region}
+                {count ? `${count.toLocaleString("en-US")} planning` : "No plans yet"} · {parent ? parent.name : place.region}
               </span>
-              <span className="row-scores">
-                Afford {fmt(scoreOf(place.id, "affordability"))} · Safety {fmt(scoreOf(place.id, "safety"))} · Beauty {fmt(scoreOf(place.id, "beauty"))}
-              </span>
+              {scoreOf(place.id, "overall") !== null ? (
+                <span className="row-scores">
+                  Afford {fmt(scoreOf(place.id, "affordability"))} · Safety {fmt(scoreOf(place.id, "safety"))} · Beauty {fmt(scoreOf(place.id, "beauty"))}
+                </span>
+              ) : null}
             </button>
           );
         })}
@@ -241,10 +252,12 @@ export function PlacePanel({ place }: { place: Place }) {
 
   const trip = state.trips.find((item) => item.placeId === place.id);
   const relevant = trip && trip.season === state.season ? trip : undefined;
-  const overlap = anonymousOverlap(place, state.season, relevant);
+  usePlans();
+  const year = seasonYear(state.season);
+  const overlapN = useOverlap(relevant ? place.id : null, relevant?.start, relevant?.end);
   const friendHits = friendsAtPlace(place.id, state.season, friends, relevant);
-  const overlapFriends = friendHits.filter((hit) => (relevant ? hit.overlapsYou : true));
-  const lastYear = visitCount(place, state.season, 2025);
+  const planning = visitCount(place, state.season, year);
+  const lastYear = visitCount(place, state.season, year - 1);
   const children = PLACES.filter((child) => child.parentId === place.id && visitCount(child, state.season) > 0).sort(
     (a, b) => visitCount(b, state.season) - visitCount(a, state.season),
   );
@@ -294,31 +307,23 @@ export function PlacePanel({ place }: { place: Place }) {
         </div>
         <div className="stats">
           <div>
-            <b>{visitCount(place, state.season).toLocaleString("en-US")}</b>
-            <span>plans, {CURRENT_YEAR}</span>
-            <small>{lastYear.toLocaleString("en-US")} went in 2025</small>
+            <b>{planning.toLocaleString("en-US")}</b>
+            <span>
+              planning {seasonLabel(state.season)} {year}
+            </span>
+            <small>{lastYear ? `${lastYear.toLocaleString("en-US")} in ${year - 1}` : "from students' saved trips"}</small>
           </div>
           <div>
-            <b>{overlap.count.toLocaleString("en-US")}</b>
-            <span>{overlap.matched ? "overlap your dates" : "busiest week"}</span>
-            <small>
-              {overlap.label}
-              {overlap.matched && overlapFriends.length > 0 && overlapFriends.length <= overlap.count
-                ? ` · includes ${overlapFriends.length} ${overlapFriends.length === 1 ? "friend" : "friends"}`
-                : ""}
-            </small>
+            <b>{relevant ? (overlapN ?? "…") : "—"}</b>
+            <span>{relevant ? "overlap your dates" : "overlap your dates"}</span>
+            <small>{relevant ? "other students, names hidden" : "save your dates to see"}</small>
           </div>
           <div>
             <b>{friendHits.length}</b>
             <span>{friendHits.length === 1 ? "friend going" : "friends going"}</span>
-            <small>{friendHits.length ? "names only if you added them" : "add friends to see names"}</small>
+            <small>{friendHits.length ? "only friends you added" : "add friends to see names"}</small>
           </div>
         </div>
-        {lastYear >= 100 ? (
-          <p className="callout">
-            {lastYear.toLocaleString("en-US")} Yalies logged {seasonLabel(state.season)} 2025. Ratings and notes are what they left behind, with names removed.
-          </p>
-        ) : null}
         {place.atlas ? <p className="atlas">{place.atlas}</p> : null}
         {place.guide.split("\n\n").map((paragraph) => (
           <p key={paragraph} className="guide">
@@ -346,7 +351,7 @@ export function PlacePanel({ place }: { place: Place }) {
                 <li key={child.id}>
                   <button type="button" onClick={() => dispatch({ type: "select", id: child.id })}>
                     <span>{child.name}</span>
-                    <span>{visitCount(child, state.season).toLocaleString("en-US")} Yalies</span>
+                    <span>{visitCount(child, state.season).toLocaleString("en-US")} planning</span>
                     <Rating value={scoreOf(child.id, "overall")} />
                   </button>
                 </li>
@@ -402,16 +407,22 @@ export function PlacePanel({ place }: { place: Place }) {
 }
 
 function HistoryChart({ place, season }: { place: Place; season: Season }) {
-  const rows = place.history[season];
+  usePlans();
+  const now = seasonYear(season);
+  const rows = [now - 3, now - 2, now - 1, now].map((y) => ({ year: y, count: visitCount(place, season, y) }));
   const max = Math.max(1, ...rows.map((row) => row.count));
+  const empty = rows.every((r) => r.count === 0);
   return (
     <div className="history">
-      <p className="fine">2026 figures are plans students have already logged. Earlier years are completed trips.</p>
+      <p className="fine">
+        Yale students who saved a {seasonLabel(season)} trip here while signed in. {now} is plans so far.
+      </p>
+      {empty ? <p className="empty">No trips logged here yet. Plan yours to be the first.</p> : null}
       {rows.map((row) => (
         <div className="bar-row" key={row.year}>
           <span>
             {row.year}
-            {row.year === CURRENT_YEAR ? " plans" : ""}
+            {row.year === now ? " plans" : ""}
           </span>
           <span className="bar">
             <span style={{ width: `${(row.count / max) * 100}%` }} />
@@ -428,21 +439,19 @@ function PlanForm({ place, onDone }: { place: Place; onDone?: () => void }) {
   const friends = useFriends();
   const existing = state.trips.find((trip) => trip.placeId === place.id);
   const initialSeason = existing?.season ?? state.season;
-  const peakFor = (season: Season) =>
-    place.cohorts.filter((cohort) => cohort.season === season).sort((a, b) => b.count - a.count)[0];
-  const initialPeak = peakFor(initialSeason);
+  const initialWindow = defaultWindow(initialSeason);
   const [season, setSeason] = useState<Season>(initialSeason);
-  const [start, setStart] = useState(existing?.start ?? initialPeak?.start ?? "2026-03-07");
-  const [end, setEnd] = useState(existing?.end ?? initialPeak?.end ?? "2026-03-15");
+  const [start, setStart] = useState(existing?.start ?? initialWindow[0]);
+  const [end, setEnd] = useState(existing?.end ?? initialWindow[1]);
   const [note, setNote] = useState(existing?.note ?? "");
   const [withIds, setWithIds] = useState<string[]>(existing?.friendNetids ?? []);
 
   useEffect(() => {
     const nextSeason = existing?.season ?? state.season;
-    const peak = place.cohorts.filter((cohort) => cohort.season === nextSeason).sort((a, b) => b.count - a.count)[0];
+    const win = defaultWindow(nextSeason);
     setSeason(nextSeason);
-    setStart(existing?.start ?? peak?.start ?? "2026-03-07");
-    setEnd(existing?.end ?? peak?.end ?? "2026-03-15");
+    setStart(existing?.start ?? win[0]);
+    setEnd(existing?.end ?? win[1]);
     setNote(existing?.note ?? "");
     setWithIds(existing?.friendNetids ?? []);
   }, [place.id, existing, state.season]);
@@ -450,11 +459,10 @@ function PlanForm({ place, onDone }: { place: Place; onDone?: () => void }) {
   const invalid = parseISODate(end) < parseISODate(start);
   const blocked = travelGuidance(place.iso).level === "blocked";
 
-  function useBusiest() {
-    const peak = peakFor(season);
-    if (!peak) return;
-    setStart(peak.start);
-    setEnd(peak.end);
+  function useBreak() {
+    const win = defaultWindow(season);
+    setStart(win[0]);
+    setEnd(win[1]);
   }
 
   return (
@@ -498,8 +506,8 @@ function PlanForm({ place, onDone }: { place: Place; onDone?: () => void }) {
           <input type="date" value={end} onChange={(event) => setEnd(event.target.value)} required />
         </label>
       </div>
-      <button className="textlink" type="button" onClick={useBusiest}>
-        Use the busiest logged week
+      <button className="textlink" type="button" onClick={useBreak}>
+        Use the Yale break dates
       </button>
       {invalid ? <p className="form-error">End date is before the start date.</p> : null}
       {blocked ? <p className="form-error">Yale College will not sponsor undergraduate travel here.</p> : null}
@@ -601,7 +609,7 @@ export function CatalogView() {
         <thead>
           <tr>
             <th>Place</th>
-            <SortHeader label="Yalies" sort="yalies" />
+            <SortHeader label="Plans" sort="yalies" />
             <SortHeader label="Overall" sort="overall" />
             <SortHeader label="Afford" sort="affordability" />
             <SortHeader label="Safety" sort="safety" />
@@ -835,6 +843,16 @@ export function FriendsView() {
   );
 }
 
+function OverlapLine({ placeId, start, end, names }: { placeId: string; start: string; end: string; names: string[] }) {
+  const n = useOverlap(placeId, start, end);
+  return (
+    <p className="overlap-line">
+      {n === null ? "Overlap shows once you're signed in" : n === 0 ? "No other Yalies have saved these dates yet" : <><b>{n}</b> other {n === 1 ? "Yalie overlaps" : "Yalies overlap"} these dates</>}
+      {names.length ? ` · with ${names.join(" and ")}` : ""}
+    </p>
+  );
+}
+
 export function ItineraryView() {
   const { state, dispatch } = useTripTable();
   useReviewStore();
@@ -845,14 +863,18 @@ export function ItineraryView() {
     <div className="itinerary">
       <header>
         <div>
-          <h2>Itinerary</h2>
-          <p>Your upcoming trips, with the overlap beside the friends who are actually on them.</p>
+          <h2>Upcoming trips</h2>
+          <p>Your plans, who else is going, and how to get there.</p>
         </div>
-        <button className="textlink" type="button" onClick={() => dispatch({ type: "reset" })}>
-          Reset demo data
-        </button>
       </header>
-      {upcoming.length === 0 ? <p className="empty">No upcoming trips. Add a place from the map.</p> : null}
+      {upcoming.length === 0 ? (
+        <div className="empty-card">
+          <p>No upcoming trips yet.</p>
+          <button className="primary" type="button" onClick={() => dispatch({ type: "setView", view: "map" })}>
+            Find a place on the map
+          </button>
+        </div>
+      ) : null}
       {pastCount ? (
         <button type="button" className="textlink" onClick={() => dispatch({ type: "openProfile", tab: "history" })}>
           {pastCount} past {pastCount === 1 ? "trip" : "trips"} in your trip history →
@@ -862,7 +884,6 @@ export function ItineraryView() {
         {upcoming.map((trip) => {
           const place = PLACE_BY_ID.get(trip.placeId);
           if (!place) return null;
-          const overlap = anonymousOverlap(place, trip.season, trip);
           const names = trip.friendNetids
             .map((id) => friends.find((person) => person.netid === id)?.name)
             .filter((name): name is string => Boolean(name));
@@ -878,10 +899,7 @@ export function ItineraryView() {
               </div>
               {trip.note ? <p>{trip.note}</p> : null}
               <GroupFlightSummary trip={trip} />
-              <p className="overlap-line">
-                <b>{overlap.count.toLocaleString("en-US")}</b> Yalies overlap these dates
-                {names.length ? `. With ${names.join(" and ")}` : ""}.
-              </p>
+              <OverlapLine placeId={place.id} start={trip.start} end={trip.end} names={names} />
               <TravelLinks name={place.name} />
               <div className="plan-actions">
                 <button

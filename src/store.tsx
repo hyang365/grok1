@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type Dispatch, type ReactNode } from "react";
 import { DIRECTORY, ME, PLACE_BY_ID } from "./data";
 import { useReviewStore } from "./reviews/store";
+import { usePlans } from "./live/plans";
 import { passesFilters, sortScore, visitCount } from "./logic";
 import type { AbroadTerm, BucketItem, ProfileTab, FlightLeg, GroupFlight, Filters, MapMode, Person, Place, Season, Scope, SortKey, ThemeName, Trip, ViewName } from "./types";
 
@@ -190,6 +191,7 @@ export type Action =
   | { type: "toggleBucket"; kind: BucketItem["kind"]; targetId: string; label?: string }
   | { type: "setBucketDone"; id: string; done: boolean }
   | { type: "openProfile"; tab: ProfileTab }
+  | { type: "mergeTrips"; trips: Trip[] }
   | { type: "openProgram"; id: string };
 
 function reducer(state: State, action: Action): State {
@@ -264,6 +266,11 @@ function reducer(state: State, action: Action): State {
     }
     case "setBucketDone":
       return { ...state, bucket: state.bucket.map((b) => (b.id === action.id ? { ...b, done: action.done } : b)) };
+    case "mergeTrips": {
+      const have = new Set(state.trips.map((t) => t.id));
+      const add = action.trips.filter((t) => !have.has(t.id));
+      return add.length ? { ...state, trips: [...state.trips, ...add] } : state;
+    }
     case "openProfile":
       return { ...state, view: "profile", profileTab: action.tab };
     case "setAbroadTerm":
@@ -324,6 +331,7 @@ export function useCatalog(): {
 } {
   const { state } = useTripTable();
   const { version } = useReviewStore();
+  const { version: plansVersion } = usePlans();
   return useMemo(() => {
     const rows = [...PLACE_BY_ID.values()]
       .map((place) => ({ place, count: visitCount(place, state.season) }))
@@ -345,7 +353,7 @@ export function useCatalog(): {
       ...[...PLACE_BY_ID.values()].filter((place) => place.kind === "country").map((place) => visitCount(place, state.season)),
     );
     return { rows, passed, total, maxCountry };
-  }, [state.filters, state.season, state.sort, state.sortDir, version]);
+  }, [state.filters, state.season, state.sort, state.sortDir, version, plansVersion]);
 }
 
 export function useFriends(): Person[] {

@@ -35,8 +35,6 @@ export type Place = {
   region: string;
   blurb: string;
   guide: string;
-  history: History;
-  cohorts: Cohort[];
   stays: Stay[];
   tags: string[];
   aliases: string[];

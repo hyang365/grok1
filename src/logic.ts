@@ -1,4 +1,6 @@
 import { placeScores, reviews } from "./reviews/store";
+import { planCount, seasonYear } from "./live/plans";
+import { PLACES } from "./data";
 import type { Filters, Person, PersonTrip, Place, Season, Trip } from "./types";
 
 export const CURRENT_YEAR = 2026;
@@ -17,8 +19,32 @@ export function seasonLabel(id: Season): string {
   return SEASONS.find((season) => season.id === id)?.label ?? id;
 }
 
-export function visitCount(place: Place, season: Season, year = CURRENT_YEAR): number {
-  return place.history[season].find((row) => row.year === year)?.count ?? 0;
+/** Live count of Yale students who saved a trip here (a country includes its spots). Never sample data. */
+export function visitCount(place: Place, season: Season, year = seasonYear(season)): number {
+  let n = planCount(place.id, season, year);
+  if (place.kind === "country") {
+    for (const child of CHILDREN.get(place.id) ?? []) n += planCount(child, season, year);
+  }
+  return n;
+}
+
+const CHILDREN = new Map<string, string[]>();
+for (const p of PLACES) {
+  if (p.parentId) CHILDREN.set(p.parentId, [...(CHILDREN.get(p.parentId) ?? []), p.id]);
+}
+
+/** Default dates for a season: Yale's break calendar, rolled to the next occurrence. */
+export function defaultWindow(season: Season): [string, string] {
+  const y = seasonYear(season);
+  if (season === "spring") return [`${y}-03-13`, `${y}-03-21`];
+  if (season === "summer") return [`${y}-06-01`, `${y}-06-14`];
+  if (season === "fall") return [`${y}-10-15`, `${y}-10-19`];
+  if (season === "winter") return [`${y}-12-20`, `${y + 1}-01-03`];
+  const d = new Date();
+  d.setDate(d.getDate() + ((5 - d.getDay() + 7) % 7 || 7));
+  const fri = d.toISOString().slice(0, 10);
+  d.setDate(d.getDate() + 2);
+  return [fri, d.toISOString().slice(0, 10)];
 }
 
 export function parseISODate(iso: string): number {
@@ -193,8 +219,7 @@ export function travelGuidance(iso: string): Guidance {
 }
 
 export function passesFilters(place: Place, count: number, filters: Filters): boolean {
-  if (count <= 0) return false;
-  if (count < filters.minYalies) return false;
+  if (filters.minYalies > 0 && count < filters.minYalies) return false;
   for (const key of ["overall", "affordability", "safety", "beauty"] as const) {
     if (filters[key] <= 1) continue;
     const value = scoreOf(place.id, key);
@@ -223,32 +248,6 @@ export function filtersAreDefault(filters: Filters): boolean {
     filters.continents.length === 0 &&
     filters.scope === "all"
   );
-}
-
-export type Overlap = { count: number; label: string; matched: boolean };
-
-export function anonymousOverlap(place: Place, season: Season, trip?: Trip): Overlap {
-  const cohorts = place.cohorts.filter((cohort) => cohort.season === season);
-  if (cohorts.length === 0) return { count: 0, label: "No week logged", matched: false };
-  const peak = cohorts.reduce((best, cohort) => (cohort.count > best.count ? cohort : best));
-  if (!trip || trip.placeId !== place.id || trip.season !== season) {
-    return { count: peak.count, label: formatRange(peak.start, peak.end), matched: false };
-  }
-  let count = 0;
-  let label = "";
-  let best = -1;
-  for (const cohort of cohorts) {
-    const span = daysInclusive(cohort.start, cohort.end);
-    const overlap = daysOverlap(trip.start, trip.end, cohort.start, cohort.end);
-    if (overlap <= 0 || span <= 0) continue;
-    count += Math.max(1, Math.round(cohort.count * (overlap / span)));
-    if (cohort.count > best) {
-      best = cohort.count;
-      label = formatRange(cohort.start, cohort.end);
-    }
-  }
-  if (count === 0) return { count: 0, label: "No overlap with logged weeks", matched: true };
-  return { count, label, matched: true };
 }
 
 export type FriendHit = { person: Person; trip: PersonTrip; overlapsYou: boolean };

@@ -1,59 +1,5 @@
-import type { Cohort, History, Person, Place, Season, Stay } from "./types";
+import type { Person, Place, Stay } from "./types";
 
-const SEASON_LIST: Season[] = ["spring", "summer", "fall", "winter", "weekend"];
-
-export function cur(spring: number, summer: number, fall: number, winter: number, weekend: number): Record<Season, number> {
-  return { spring, summer, fall, winter, weekend };
-}
-
-const WINDOWS: Record<Season, { start: string; end: string; share: number }> = {
-  spring: { start: "2026-03-07", end: "2026-03-15", share: 0.28 },
-  summer: { start: "2026-06-06", end: "2026-06-20", share: 0.24 },
-  fall: { start: "2026-10-16", end: "2026-10-19", share: 0.55 },
-  winter: { start: "2026-12-19", end: "2027-01-02", share: 0.36 },
-  weekend: { start: "2026-04-10", end: "2026-04-12", share: 0.2 },
-};
-
-function historyFromCurrent(current: Record<Season, number>): History {
-  const ratios = [0.62, 0.81, 0.93, 1];
-  const history = {} as History;
-  for (const season of SEASON_LIST) {
-    history[season] = ratios.map((ratio, index) => ({
-      year: 2023 + index,
-      count: Math.round(current[season] * ratio),
-    }));
-  }
-  return history;
-}
-
-function handHistory(rows: Record<Season, number[]>): History {
-  const history = {} as History;
-  for (const season of SEASON_LIST) {
-    history[season] = rows[season].map((count, index) => ({ year: 2023 + index, count }));
-  }
-  return history;
-}
-
-function cohortsFrom(history: History, overrides?: Partial<Record<Season, Cohort[]>>): Cohort[] {
-  const cohorts: Cohort[] = [];
-  for (const season of SEASON_LIST) {
-    const custom = overrides?.[season];
-    if (custom) {
-      cohorts.push(...custom);
-      continue;
-    }
-    const total = history[season].find((row) => row.year === 2026)?.count ?? 0;
-    if (total < 4) continue;
-    const window = WINDOWS[season];
-    cohorts.push({
-      season,
-      start: window.start,
-      end: window.end,
-      count: Math.max(1, Math.round(total * window.share)),
-    });
-  }
-  return cohorts;
-}
 
 type Spec = {
   id: string;
@@ -69,15 +15,10 @@ type Spec = {
   tags: string[];
   aliases?: string[];
   atlas?: string;
-  current?: Record<Season, number>;
-  history?: History;
-  cohortOverrides?: Partial<Record<Season, Cohort[]>>;
   stays: Stay[];
 };
 
 function place(spec: Spec): Place {
-  if (!spec.current && !spec.history) throw new Error(`Missing counts for ${spec.id}`);
-  const history = spec.history ?? historyFromCurrent(spec.current as Record<Season, number>);
   return {
     id: spec.id,
     name: spec.name,
@@ -89,8 +30,6 @@ function place(spec: Spec): Place {
     region: spec.region,
     blurb: spec.blurb,
     guide: spec.guide,
-    history,
-    cohorts: cohortsFrom(history, spec.cohortOverrides),
     stays: spec.stays,
     tags: spec.tags,
     aliases: spec.aliases ?? [],
@@ -113,19 +52,6 @@ export const PLACES: Place[] = [
       "San Juan splits in two. Condado and Ocean Park are where the suites stay: swimmable beach, nighttime foot traffic, and an Airbnb that costs less than a week of meal plan if you split it six ways. Old San Juan is the morning. The forts, the blue cobblestones, and coffee before the cruise ships dock.\n\nThe trip that students rate highest adds one day outside the city. Fajardo for the bioluminescent bay, or El Yunque if the weather holds. Nonstops are easiest from JFK or Newark. Book the bay tour before February.",
     tags: ["beach", "island", "city", "food"],
     aliases: ["puerto rico", "san juan", "pr", "condado", "old san juan", "fajardo"],
-    history: handHistory({
-      spring: [132, 178, 214, 168],
-      summer: [28, 36, 44, 41],
-      fall: [12, 16, 18, 14],
-      winter: [40, 48, 55, 46],
-      weekend: [4, 6, 8, 6],
-    }),
-    cohortOverrides: {
-      spring: [
-        { season: "spring", start: "2026-03-07", end: "2026-03-15", count: 46 },
-        { season: "spring", start: "2026-03-16", end: "2026-03-22", count: 22 },
-      ],
-    },
     stays: [
       { name: "La Concha Renaissance", area: "Condado", nightly: 285 },
       { name: "Hotel El Convento", area: "Old San Juan", nightly: 255 },
@@ -145,7 +71,6 @@ export const PLACES: Place[] = [
       "Spring-break Mexico at Yale is mostly Mexico City and Oaxaca, not the resort corridor. Roma Norte and Condesa are the neighborhoods students name. Uber at night, not a street taxi. Oaxaca is cheaper, slower, and the one people say they would repeat.\n\nIf the group wants a beach, Puerto Escondido shows up in the comments more than Cancún. The coast is a separate plan from the city. Do not try to do both in six days.",
     tags: ["city", "food", "culture"],
     aliases: ["mexico", "mexico city", "cdmx", "oaxaca", "cancun"],
-    current: cur(154, 88, 20, 36, 4),
     stays: [
       { name: "Condesa DF", area: "Condesa, Mexico City", nightly: 175 },
       { name: "Casa Oaxaca", area: "Centro, Oaxaca", nightly: 145 },
@@ -164,13 +89,6 @@ export const PLACES: Place[] = [
       "Inside the U.S. the pattern is obvious once you zoom. Weekends belong to the Northeast corridor: New York, Boston, Philadelphia, D.C., the Hudson Valley, Newport, Block Island. Spring break jumps south: Miami, New Orleans, Austin, Charleston.\n\nThe smaller pins are the Atlas layer. Marfa, the Wave, Salvation Mountain, Big Sur. Fewer students, higher beauty scores, and comments that read like field notes. City counts sit inside the U.S. total.",
     tags: ["city", "road", "weekend", "hike"],
     aliases: ["united states", "usa", "america", "domestic"],
-    history: handHistory({
-      spring: [280, 340, 400, 430],
-      summer: [190, 220, 250, 268],
-      fall: [210, 250, 290, 318],
-      winter: [160, 200, 240, 262],
-      weekend: [440, 520, 590, 640],
-    }),
     stays: [
       { name: "Split apartments, by city", area: "Varies", nightly: 120 },
     ],
@@ -188,7 +106,6 @@ export const PLACES: Place[] = [
       "Students who rate Italy highest do one city slowly and one coast, not seven cities in ten days. Rome or Florence as the base, then the Amalfi Coast or Cinque Terre if the group can stomach the crowds and the prices.\n\nTrains work. A car on the coast does not, unless someone enjoys cliffs. Book rooms with air conditioning and say so. June is already hot.",
     tags: ["city", "food", "coast"],
     aliases: ["italy", "rome", "florence", "amalfi", "cinque terre"],
-    current: cur(26, 136, 18, 22, 2),
     stays: [
       { name: "Hotel Santa Maria", area: "Trastevere, Rome", nightly: 165 },
       { name: "Hotel Marina Riviera", area: "Amalfi", nightly: 280 },
@@ -207,7 +124,6 @@ export const PLACES: Place[] = [
       "Tokyo first, Kyoto second. That order shows up over and over. Students trust the rail, the convenience stores, and the fact that you can lose a wallet and get it back. The cost is the flight and the midrange hotel, not the food.\n\nA rail pass is worth it if you leave the two cities. It is not worth it for a week that never leaves Tokyo. IC cards cover the subway.",
     tags: ["city", "food", "rail"],
     aliases: ["japan", "tokyo", "kyoto", "osaka"],
-    current: cur(14, 104, 8, 30, 1),
     stays: [
       { name: "Mustard Hotel Shimokitazawa", area: "Tokyo", nightly: 140 },
       { name: "Hotel Kanra", area: "Kyoto", nightly: 205 },
@@ -225,7 +141,6 @@ export const PLACES: Place[] = [
     guide: "Barcelona is the default and Madrid is the correction. Students who want architecture and a beach day pick Barcelona. Students who want museums and neighborhoods pick Madrid. Both are easy on trains. Dinner starts late. Plan for it or you will be the group eating at 6.",
     tags: ["city", "food", "beach"],
     aliases: ["spain", "barcelona", "madrid"],
-    current: cur(44, 118, 16, 24, 3),
     stays: [{ name: "Casa Bonay", area: "Eixample, Barcelona", nightly: 165 }],
   }),
   place({
@@ -240,7 +155,6 @@ export const PLACES: Place[] = [
     guide: "The trips that rate well stay in one arrondissement and take one day trip, usually Versailles or a morning in the Marais with no itinerary. The trips that rate poorly change hotels twice and eat only where the menu has photographs. Budget for the museum pass and for dinner.",
     tags: ["city", "food", "museum"],
     aliases: ["france", "paris"],
-    current: cur(18, 96, 12, 20, 2),
     stays: [{ name: "Hôtel Jeanne d'Arc", area: "Le Marais, Paris", nightly: 185 }],
   }),
   place({
@@ -255,7 +169,6 @@ export const PLACES: Place[] = [
     guide: "English is not the same thing as cheap. Students underestimate pubs and the tube. The trips that work treat London as a city of neighborhoods, not a checklist of bridges, and add Edinburgh only if there are four spare days. Trains are easy and not cheap if you buy them the day of.",
     tags: ["city", "museum"],
     aliases: ["uk", "united kingdom", "london", "edinburgh", "england", "scotland", "britain"],
-    current: cur(16, 74, 14, 22, 12),
     stays: [{ name: "The Hoxton, Shoreditch", area: "London", nightly: 175 }],
   }),
   place({
@@ -271,7 +184,6 @@ export const PLACES: Place[] = [
       "A week is the Ring Road only if someone is willing to drive every day. Most highly rated Yale trips stay in Reykjavík and do the south coast: waterfalls, a black-sand beach, and a glacier lagoon if the budget survives.\n\nFood is the shock. Groceries, not restaurants, are how groups stay solvent. The Blue Lagoon is a half day and a reservation, not a neighborhood. Weather cancels plans. Build a slack day.",
     tags: ["hike", "landscape", "road"],
     aliases: ["iceland", "reykjavik", "ring road"],
-    current: cur(8, 58, 4, 12, 0),
     stays: [
       { name: "KEX Hostel", area: "Reykjavík", nightly: 95 },
       { name: "Sandhotel", area: "Reykjavík", nightly: 155 },
@@ -289,7 +201,6 @@ export const PLACES: Place[] = [
     guide: "Lisbon is the one. Hills, tiles, a tram that is mostly for the photograph, and neighborhoods that reward getting lost. Porto is the long weekend added on, not a rival capital. Pasteis are not a personality. The river at sunset is the actual event.",
     tags: ["city", "food", "affordable"],
     aliases: ["portugal", "lisbon", "porto"],
-    current: cur(20, 66, 10, 14, 2),
     stays: [{ name: "The Lumiares", area: "Bairro Alto, Lisbon", nightly: 175 }],
   }),
   place({
@@ -304,7 +215,6 @@ export const PLACES: Place[] = [
     guide: "Students treat Seoul as the trip and Busan as the optional coast. Neighborhoods matter: Hongdae, Ikseon-dong, and a palace in the morning before you have an opinion about shopping. The subway is in English. The hard part is choosing where to eat, not getting there.",
     tags: ["city", "food"],
     aliases: ["korea", "south korea", "seoul", "busan"],
-    current: cur(10, 76, 6, 22, 1),
     stays: [{ name: "RYSE Hotel", area: "Hongdae, Seoul", nightly: 150 }],
   }),
   place({
@@ -319,7 +229,6 @@ export const PLACES: Place[] = [
     guide: "A riad in the medina is the stay students mean. The square is a spectacle and not where you eat twice. Day trips to the Atlas or a night in Chefchaouen are what separate a 4.0 comment from a 4.7. Agree on a meeting point before the alleys split the group.",
     tags: ["city", "market", "culture"],
     aliases: ["morocco", "marrakech", "marrakesh", "chefchaouen"],
-    current: cur(36, 28, 8, 18, 0),
     stays: [{ name: "Les Jardins de la Medina", area: "Marrakech", nightly: 140 }],
   }),
   place({
@@ -334,7 +243,6 @@ export const PLACES: Place[] = [
     guide: "La Fortuna and Arenal are the inland half. A beach town, often Manuel Antonio or Santa Teresa, is the other half. Trying to drive the whole country in seven days is the comment people regret. Pick a coast. The hanging bridges are worth it. The resort that never lets you leave is not.",
     tags: ["hike", "beach", "nature"],
     aliases: ["costa rica", "la fortuna", "arenal", "manuel antonio"],
-    current: cur(64, 48, 6, 20, 1),
     stays: [{ name: "Arenal Observatory Lodge", area: "La Fortuna", nightly: 180 }],
   }),
   place({
@@ -349,7 +257,6 @@ export const PLACES: Place[] = [
     guide: "Students who only do Athens feel they missed it. Students who only do Santorini pay for a postcard. The rating peak is Athens for the museum and the food, then a ferry to one island and staying there. Ferries sell out in July. Hydra and Naxos show up as the less crushed alternatives.",
     tags: ["island", "food", "coast"],
     aliases: ["greece", "athens", "santorini", "naxos"],
-    current: cur(12, 84, 6, 8, 0),
     stays: [{ name: "Herodion Hotel", area: "Acropolis, Athens", nightly: 170 }],
   }),
   place({
@@ -364,7 +271,6 @@ export const PLACES: Place[] = [
     guide: "Winter is ski week. Summer is trains and a village. Zermatt is car-free and the one students name. Grocery prices are not a joke. A Swiss Travel Pass can be cheaper than individual tickets if you are actually moving. If you are sitting in one village, it is not.",
     tags: ["mountain", "ski", "expensive"],
     aliases: ["switzerland", "zermatt", "alps", "zurich"],
-    current: cur(4, 24, 6, 36, 0),
     stays: [{ name: "Hotel Bahnhof", area: "Zermatt", nightly: 95 }],
   }),
   place({
@@ -379,7 +285,6 @@ export const PLACES: Place[] = [
     guide: "Street food is the budget and the point. Students who stay only in a mall district rate the trip as fine. Students who do a cooking class, a morning market, and one trip north rate it as a highlight of college. The islands are a different trip. Pick north or pick islands.",
     tags: ["food", "city", "affordable"],
     aliases: ["thailand", "bangkok", "chiang mai"],
-    current: cur(16, 52, 6, 34, 0),
     stays: [{ name: "Lub d Bangkok Siam", area: "Siam, Bangkok", nightly: 48 }],
   }),
   place({
@@ -394,7 +299,6 @@ export const PLACES: Place[] = [
     guide: "From New Haven, Montreal is the international trip that still feels like a long weekend. Old Montreal is pretty and a little staged. The neighborhoods north of it are where the comments get specific: bagels, a park, a show. Summer trips drift to Vancouver or the Rockies and need a real flight budget.",
     tags: ["city", "weekend", "food"],
     aliases: ["canada", "montreal", "vancouver", "toronto"],
-    current: cur(8, 22, 72, 18, 14),
     stays: [{ name: "Hotel Gault", area: "Old Montreal", nightly: 185 }],
   }),
   place({
@@ -409,7 +313,6 @@ export const PLACES: Place[] = [
     guide: "Punta Cana is the easy version: a beach, a pool, a wristband. Students who take one day in Santo Domingo's Colonial Zone rate the trip higher than students who never pass the gate. Resorts book up over winter break. Go with a group you actually like, because you will see them.",
     tags: ["beach", "island"],
     aliases: ["dominican republic", "punta cana", "santo domingo"],
-    current: cur(92, 26, 6, 18, 1),
     stays: [{ name: "Catalonia Royal Bavaro", area: "Punta Cana", nightly: 145 }],
   }),
   place({
@@ -424,7 +327,6 @@ export const PLACES: Place[] = [
     guide: "Nassau and Paradise Island are what the flights point at. The water ratings are high. The value ratings are not. Groups that do well pick one nice beach day and one meal off the resort strip, and they split rooms without pretending the trip is cheap.",
     tags: ["beach", "island", "expensive"],
     aliases: ["bahamas", "nassau", "paradise island"],
-    current: cur(48, 18, 2, 10, 1),
     stays: [{ name: "SLS Baha Mar", area: "Nassau", nightly: 280 }],
   }),
   place({
@@ -439,7 +341,6 @@ export const PLACES: Place[] = [
     guide: "All-inclusives in Montego Bay photograph well and read as generic in the comments. Negril's west end shows up when people want a cliff and a quieter beach. Go with a plan for nights, stay with the group, and do not treat the resort gate as the edge of the map.",
     tags: ["beach", "island", "music"],
     aliases: ["jamaica", "negril", "montego bay", "kingston"],
-    current: cur(38, 16, 3, 8, 0),
     stays: [{ name: "Rockhouse", area: "Negril", nightly: 220 }],
   }),
   place({
@@ -454,7 +355,6 @@ export const PLACES: Place[] = [
     guide: "The canal photo is one hour. The trip is neighborhoods, a museum, and the fact that the train to anywhere else in the country takes less time than the Metro-North to New York. Stay outside the very center if you want to sleep. Book the Anne Frank House or the Rijksmuseum before you fly.",
     tags: ["city", "bike", "museum"],
     aliases: ["netherlands", "holland", "amsterdam"],
-    current: cur(10, 42, 8, 12, 2),
     stays: [{ name: "The Hoxton, Amsterdam", area: "Herengracht", nightly: 195 }],
   }),
   place({
@@ -469,7 +369,6 @@ export const PLACES: Place[] = [
     guide: "Berlin rewards a group that picks a neighborhood and stays out with a plan to get home. Museumsinsel is the daytime. The comments get less useful when they turn into club reviews, so the public ones here stay on food, transit, and where to stay. A Deutschland-Ticket covers an absurd amount of rail.",
     tags: ["city", "museum"],
     aliases: ["germany", "berlin", "munich"],
-    current: cur(8, 36, 10, 16, 2),
     stays: [{ name: "25hours Hotel Bikini Berlin", area: "City West", nightly: 145 }],
   }),
   place({
@@ -484,7 +383,6 @@ export const PLACES: Place[] = [
     guide: "Dublin is a weekend stretched into a week unless you leave it. The highly rated version adds Galway or the Dingle peninsula and accepts that it will rain. A car for the west, no car for the city. Pubs are the evening plan. Say so in advance if that is not your trip.",
     tags: ["city", "coast", "landscape"],
     aliases: ["ireland", "dublin", "galway"],
-    current: cur(8, 40, 12, 10, 3),
     stays: [{ name: "The Dean Dublin", area: "Dublin", nightly: 165 }],
   }),
   place({
@@ -499,7 +397,6 @@ export const PLACES: Place[] = [
     guide: "Split is the easier base. Dubrovnik is worth two nights and a walk on the walls at opening, not a full week in July. Ferries to the islands are the part students wish they had left more time for. Hvar in peak season reads as a party. Korčula reads as a trip.",
     tags: ["coast", "swim", "city"],
     aliases: ["croatia", "dubrovnik", "split", "hvar"],
-    current: cur(6, 34, 4, 4, 0),
     stays: [{ name: "Hotel Excelsior", area: "Dubrovnik", nightly: 290 }],
   }),
   place({
@@ -514,7 +411,6 @@ export const PLACES: Place[] = [
     guide: "The center is beautiful and full of tours. Stay in it if you want the walk home to be the show, and eat one neighborhood away. Students rate the value honestly: you can do this trip without the panic of a Paris receipt. Český Krumlov is the day trip that earns its place.",
     tags: ["city", "affordable", "architecture"],
     aliases: ["czechia", "czech republic", "prague"],
-    current: cur(14, 38, 8, 16, 1),
     stays: [{ name: "Hotel Josef", area: "Old Town, Prague", nightly: 120 }],
   }),
   place({
@@ -529,7 +425,6 @@ export const PLACES: Place[] = [
     guide: "Students who go for a week and only do Istanbul are not disappointed. The Bosphorus, the mosques, the food, and a hammam if the group wants one planned sensory event. Cappadocia is a balloon photo and a separate ticket. Do not treat the two as a casual day trip from each other.",
     tags: ["city", "food", "culture"],
     aliases: ["turkey", "istanbul", "cappadocia"],
-    current: cur(18, 32, 6, 12, 0),
     stays: [{ name: "Sub Karaköy", area: "Karaköy, Istanbul", nightly: 125 }],
   }),
   place({
@@ -544,7 +439,6 @@ export const PLACES: Place[] = [
     guide: "North to south on a sleeper train is the romantic version and it eats days. The rated version is Hanoi plus Hội An or a beach, with flights between them. Street food is the budget. A cooking class shows up in an unusual number of comments for a reason. Cross streets calmly and together.",
     tags: ["food", "city", "affordable"],
     aliases: ["vietnam", "hanoi", "hoi an", "saigon"],
-    current: cur(8, 44, 4, 26, 0),
     stays: [{ name: "La Siesta Classic", area: "Hoàn Kiếm, Hanoi", nightly: 70 }],
   }),
   place({
@@ -559,7 +453,6 @@ export const PLACES: Place[] = [
     guide: "Ubud is the half students recommend to each other. Rice terraces, a scooter only if someone has actually ridden one, and a beach club day if the group wants it rather than as the identity of the trip. The south beaches are easy and loud. Pick a base and stay.",
     tags: ["island", "nature", "beach"],
     aliases: ["indonesia", "bali", "ubud", "canggu"],
-    current: cur(4, 36, 2, 18, 0),
     stays: [{ name: "Bisma Eight", area: "Ubud", nightly: 140 }],
   }),
   place({
@@ -574,7 +467,6 @@ export const PLACES: Place[] = [
     guide: "The comments are enthusiastic about food, weather, and walking old streets, and practical about evenings. Stay in the walled part of Cartagena or a known neighborhood in Medellín, use ride apps, and do not turn a good daytime trip into a performance of being relaxed. Coffee country is the add-on people wish they had scheduled.",
     tags: ["city", "coast", "food"],
     aliases: ["colombia", "cartagena", "medellin", "bogota"],
-    current: cur(22, 30, 4, 12, 0),
     stays: [{ name: "Casa San Agustín", area: "Walled city, Cartagena", nightly: 195 }],
   }),
   place({
@@ -589,7 +481,6 @@ export const PLACES: Place[] = [
     guide: "Fly into Cusco and do not hike the next morning. A day of walking the city, coca tea, and water is the difference between a trip and a headache. Machu Picchu needs tickets ahead. The classic hike is a commitment. The train version is still extraordinary and is what most student groups actually do.",
     tags: ["hike", "mountain", "history"],
     aliases: ["peru", "cusco", "machu picchu", "lima"],
-    current: cur(12, 40, 4, 10, 0),
     stays: [{ name: "Palacio del Inka", area: "Cusco", nightly: 150 }],
   }),
   place({
@@ -604,7 +495,6 @@ export const PLACES: Place[] = [
     guide: "This is not a trip to improvise hour by hour. Students who arrange a guide, agree on a meeting plan, and do the museum plus the pyramids as a designed two days rate it as a highlight. Students who wing it rate the hassle. A Nile day is the breather. Drink water.",
     tags: ["history", "city"],
     aliases: ["egypt", "cairo", "pyramids", "giza"],
-    current: cur(10, 18, 3, 14, 0),
     stays: [{ name: "Marriott Mena House", area: "Giza", nightly: 155 }],
   }),
   place({
@@ -619,7 +509,6 @@ export const PLACES: Place[] = [
     guide: "Sydney is the city students can hold in a week: the harbor, a ferry, a beach that is a bus ride rather than a resort. Melbourne is the add for people who want food and neighborhoods. The outback and the reef are separate expeditions. Do not land and rent a car for the continent.",
     tags: ["city", "beach", "expensive"],
     aliases: ["australia", "sydney", "melbourne"],
-    current: cur(2, 8, 2, 20, 0),
     stays: [{ name: "Paramount House Hotel", area: "Surry Hills, Sydney", nightly: 185 }],
   }),
 
@@ -637,7 +526,6 @@ export const PLACES: Place[] = [
       "This is the weekend Yale actually takes. The train from New Haven is the feature, not a compromise. Students who pay for Midtown hotels rate the trip worse than students who stay with a friend or split one night on the Lower East Side.\n\nPick a neighborhood and stay in it. A museum in the morning, a walk, one reservation. The trip fails when it becomes six boroughs and a brunch line.",
     tags: ["city", "weekend", "food", "train"],
     aliases: ["new york", "nyc", "manhattan", "brooklyn", "new york city"],
-    current: cur(36, 48, 80, 54, 286),
     stays: [
       { name: "Freehand New York", area: "Lower East Side", nightly: 155 },
       { name: "A friend's couch", area: "Wherever they live", nightly: 0 },
@@ -656,7 +544,6 @@ export const PLACES: Place[] = [
     guide: "Boston works when someone in the group already has a place to sleep. The city is pretty in a contained way: the Common, the river, the North End for one meal. It is an easy Amtrak. It is not a city that rewards a frantic itinerary.",
     tags: ["city", "weekend"],
     aliases: ["boston", "cambridge"],
-    current: cur(12, 20, 55, 16, 96),
     stays: [{ name: "The Revolution Hotel", area: "South End", nightly: 145 }],
   }),
   place({
@@ -672,7 +559,6 @@ export const PLACES: Place[] = [
     guide: "The museums are free and they close. Pick two, not eight. Evenings in Shaw or on U Street are the part that makes the trip feel like college rather than a tour. The bus from New Haven is long and still the move if the train price is rude.",
     tags: ["city", "museum", "weekend"],
     aliases: ["washington", "dc", "d.c.", "washington dc"],
-    current: cur(15, 18, 42, 20, 74),
     stays: [{ name: "The LINE", area: "Adams Morgan", nightly: 160 }],
   }),
   place({
@@ -688,7 +574,6 @@ export const PLACES: Place[] = [
     guide: "A Yale group can do Philadelphia without performing a big trip. Old City for the history hour, then a neighborhood for the actual day. The Italian Market, a museum, and dinner. It is the value weekend on this map.",
     tags: ["city", "food", "weekend", "affordable"],
     aliases: ["philadelphia", "philly"],
-    current: cur(10, 12, 22, 14, 48),
     stays: [{ name: "Lokal Hotel", area: "Old City", nightly: 150 }],
   }),
   place({
@@ -704,7 +589,6 @@ export const PLACES: Place[] = [
     guide: "South Beach is the picture and the loud version. The better-rated trips stay there one night or not at all and spend the day in Wynwood, Little Havana, or on a beach that is not a club entrance. Split the room. The flight is the cheap part. The dinner is not.",
     tags: ["beach", "city", "spring break"],
     aliases: ["miami", "south beach", "florida"],
-    current: cur(110, 24, 6, 28, 18),
     stays: [{ name: "Freehand Miami", area: "South Beach", nightly: 135 }],
   }),
   place({
@@ -721,7 +605,6 @@ export const PLACES: Place[] = [
       "Bourbon Street is a block, not a city. The comments that love this place talk about the Marigny, a jazz set that was not a novelty show, and meals they still describe in detail.\n\nWalk in a group at night, take the streetcar in the daytime, and do not schedule anything ambitious before 11 a.m. Spring weather is the one you want.",
     tags: ["food", "music", "city"],
     aliases: ["new orleans", "nola", "louisiana"],
-    current: cur(84, 20, 14, 18, 10),
     stays: [{ name: "Hotel Peter and Paul", area: "Marigny", nightly: 185 }],
   }),
   place({
@@ -737,7 +620,6 @@ export const PLACES: Place[] = [
     guide: "South Congress is the stay. Barton Springs is the daytime if it is already warm. Students who only go out on Rainey Street write thinner comments than students who do a music venue with a door time and a barbecue line before noon. It is a real city. Give it a neighborhood.",
     tags: ["food", "music", "city"],
     aliases: ["austin", "texas"],
-    current: cur(56, 22, 10, 12, 16),
     stays: [{ name: "Hotel San José", area: "South Congress", nightly: 175 }],
   }),
   place({
@@ -753,7 +635,6 @@ export const PLACES: Place[] = [
     guide: "The peninsula is the trip. Pastel streets, a beach on Sullivan's Island if you want water, and dinners you should book. It is prettier than it is cheap. Groups of four fit it better than groups of twelve.",
     tags: ["city", "food", "coast"],
     aliases: ["charleston", "south carolina"],
-    current: cur(32, 14, 8, 6, 4),
     stays: [{ name: "Zero George Street", area: "Ansonborough", nightly: 260 }],
   }),
   place({
@@ -769,7 +650,6 @@ export const PLACES: Place[] = [
     guide: "If the group wants honky-tonks, go, enjoy it, and stay somewhere you can leave the noise. If the group wants food and a neighborhood, East Nashville is the version that reads like a trip rather than a dare. Hot chicken is mandatory. So is a plan to sit down.",
     tags: ["music", "food", "city"],
     aliases: ["nashville", "tennessee"],
-    current: cur(26, 12, 6, 8, 6),
     stays: [{ name: "Graduate Nashville", area: "Midtown", nightly: 155 }],
   }),
   place({
@@ -785,7 +665,6 @@ export const PLACES: Place[] = [
     guide: "Pick two areas and pretend the rest of the county does not exist. Los Feliz and the east side, or Santa Monica and a single beach day. Driving between them at 5 p.m. is how the trip sours. Food is the reason to go. The hike with a view is the other reason.",
     tags: ["city", "food", "beach"],
     aliases: ["los angeles", "la", "california"],
-    current: cur(22, 30, 8, 16, 6),
     stays: [{ name: "Freehand Los Angeles", area: "Downtown", nightly: 120 }],
   }),
   place({
@@ -801,7 +680,6 @@ export const PLACES: Place[] = [
     guide: "Bring a jacket in July. The highly rated day is a neighborhood in the morning, a ferry or a park, and a dinner you booked. The city is compact and expensive. Students who treat it like a driving tour of the Bay have the worse time.",
     tags: ["city", "food", "coast"],
     aliases: ["san francisco", "sf", "bay area"],
-    current: cur(14, 26, 10, 12, 4),
     stays: [{ name: "Hotel Zephyr", area: "Fisherman's Wharf", nightly: 165 }],
   }),
   place({
@@ -817,7 +695,6 @@ export const PLACES: Place[] = [
     guide: "Waikiki is convenient and not the whole island. The comments that glow talk about a morning hike, a shrimp truck or a poke counter, and one beach that took a bus. Rental cars are useful and a liability in the group chat. Decide before you land.",
     tags: ["beach", "hike", "island"],
     aliases: ["honolulu", "hawaii", "oahu", "waikiki"],
-    current: cur(18, 22, 4, 16, 1),
     stays: [{ name: "White Sands Hotel", area: "Waikiki", nightly: 175 }],
   }),
   place({
@@ -834,7 +711,6 @@ export const PLACES: Place[] = [
     tags: ["hike", "desert", "landscape"],
     aliases: ["sedona", "arizona"],
     atlas: "Red rock trails start inside the town. The view is the main street.",
-    current: cur(10, 16, 12, 6, 2),
     stays: [{ name: "Arabella Hotel", area: "Uptown Sedona", nightly: 210 }],
   }),
   place({
@@ -852,7 +728,6 @@ export const PLACES: Place[] = [
     tags: ["art", "desert", "road"],
     aliases: ["marfa", "prada marfa", "chinati", "west texas"],
     atlas: "Prada Marfa and the Chinati Foundation. Art in a town that still has one stoplight.",
-    current: cur(8, 14, 6, 4, 1),
     stays: [
       { name: "Hotel Saint George", area: "Downtown Marfa", nightly: 230 },
       { name: "El Cosmico", area: "Edge of town", nightly: 130 },
@@ -872,7 +747,6 @@ export const PLACES: Place[] = [
     tags: ["hike", "desert", "permit"],
     aliases: ["the wave", "coyote buttes", "page arizona"],
     atlas: "A permit-only sandstone hike on the Arizona–Utah line. The lottery is the gate.",
-    current: cur(5, 7, 3, 1, 0),
     stays: [{ name: "Under Canvas Lake Powell", area: "Page", nightly: 220 }],
   }),
   place({
@@ -889,7 +763,6 @@ export const PLACES: Place[] = [
     tags: ["art", "desert", "road"],
     aliases: ["salvation mountain", "slab city", "salton sea", "niland"],
     atlas: "A painted adobe hill in the desert. Folk art, a short visit, and a long drive.",
-    current: cur(7, 6, 4, 3, 0),
     stays: [{ name: "Ace Hotel & Swim Club", area: "Palm Springs", nightly: 180 }],
   }),
   place({
@@ -906,7 +779,6 @@ export const PLACES: Place[] = [
     tags: ["coast", "drive", "landscape"],
     aliases: ["big sur", "highway 1", "california coast"],
     atlas: "The cliff highway. Pullouts, a bridge, and almost no town.",
-    current: cur(11, 18, 8, 5, 1),
     stays: [{ name: "Fernwood Resort", area: "Big Sur", nightly: 240 }],
   }),
   place({
@@ -923,7 +795,6 @@ export const PLACES: Place[] = [
     tags: ["hike", "fall", "coast", "park"],
     aliases: ["acadia", "bar harbor", "maine", "cadillac mountain"],
     atlas: "Cadillac Mountain is the first sunrise in the country for half the year. The reservation is part of the hike.",
-    current: cur(6, 28, 78, 4, 2),
     stays: [{ name: "Harborside Hotel", area: "Bar Harbor", nightly: 210 }],
   }),
   place({
@@ -939,7 +810,6 @@ export const PLACES: Place[] = [
     guide: "The Blue Ridge Parkway and a hike are half the trip. Downtown is the other half: a bookstore, a brewery if that is your group, and dinner you should book on the weekend. It is a drive from New Haven. Fall is the season people mean.",
     tags: ["food", "hike", "city"],
     aliases: ["asheville", "blue ridge", "north carolina"],
-    current: cur(6, 10, 46, 5, 2),
     stays: [{ name: "The Foundry Hotel", area: "Downtown Asheville", nightly: 175 }],
   }),
   place({
@@ -956,7 +826,6 @@ export const PLACES: Place[] = [
     tags: ["art", "hike", "weekend", "train"],
     aliases: ["hudson valley", "beacon", "hudson", "dia beacon"],
     atlas: "Dia Beacon, then a ridge. Metro-North almost the whole way.",
-    current: cur(4, 8, 18, 4, 52),
     stays: [{ name: "The Roundhouse", area: "Beacon", nightly: 195 }],
   }),
   place({
@@ -973,7 +842,6 @@ export const PLACES: Place[] = [
     tags: ["beach", "weekend", "lighthouse"],
     aliases: ["montauk", "long island", "the hamptons"],
     atlas: "A lighthouse at the end of the island. The train gets you most of the way.",
-    current: cur(3, 20, 6, 2, 24),
     stays: [{ name: "Sole East", area: "Montauk", nightly: 230 }],
   }),
   place({
@@ -990,7 +858,6 @@ export const PLACES: Place[] = [
     tags: ["island", "bike", "beach"],
     aliases: ["block island", "rhode island", "new shoreham"],
     atlas: "An island you reach by ferry from New London. Bikes, bluffs, and a small harbor.",
-    current: cur(2, 26, 4, 0, 8),
     stays: [{ name: "Spring House Hotel", area: "Old Harbor", nightly: 240 }],
   }),
   place({
@@ -1006,7 +873,6 @@ export const PLACES: Place[] = [
     guide: "The cliff walk is free and is the thing to do. The mansions are optional and ticketed. Thames Street is the evening. It is close enough for a weekend without a flight. Go when the wind is interesting, not only when the photos look hot.",
     tags: ["coast", "weekend", "walk"],
     aliases: ["newport", "rhode island", "cliff walk"],
-    current: cur(4, 18, 10, 3, 34),
     stays: [{ name: "The Attwater", area: "Newport", nightly: 200 }],
   }),
   place({
@@ -1022,7 +888,6 @@ export const PLACES: Place[] = [
     guide: "The Loop is the photograph. The neighborhoods are the trip. Students do the Art Institute properly or they do not, and the comments can tell. Deep-dish is once. The rest of the meals should be chosen on purpose. Summer on the lake is the season. Winter is a different, serious city.",
     tags: ["city", "food", "museum", "architecture"],
     aliases: ["chicago"],
-    current: cur(14, 24, 10, 12, 6),
     stays: [{ name: "The Robey", area: "Wicker Park", nightly: 165 }],
   }),
 
@@ -1039,7 +904,6 @@ export const PLACES: Place[] = [
     guide: "Roma Norte and Condesa are where the Yale trips stay. The anthropology museum needs a full morning. Uber at night. The altitude is milder than Cusco and still real on day one. This is a walking and eating trip, not a beach with a layover.",
     tags: ["city", "food", "museum"],
     aliases: ["mexico city", "cdmx", "df", "condesa"],
-    current: cur(72, 40, 10, 16, 2),
     stays: [{ name: "Condesa DF", area: "Condesa", nightly: 175 }],
   }),
   place({
@@ -1056,7 +920,6 @@ export const PLACES: Place[] = [
     tags: ["food", "market", "culture"],
     aliases: ["oaxaca", "monte alban"],
     atlas: "Monte Albán above the valley, and a market city that rewards a slow day.",
-    current: cur(42, 22, 6, 10, 0),
     stays: [{ name: "Casa Oaxaca", area: "Centro", nightly: 145 }],
   }),
   place({
@@ -1072,7 +935,6 @@ export const PLACES: Place[] = [
     guide: "Trastevere or Monti as the base. One ancient site a day, not four. The forum and a museum will fill a morning honestly. Dinner is late. Water from the fountains is fine. The groups that suffer are the ones changing hotels to 'see more.'",
     tags: ["city", "history", "food"],
     aliases: ["rome", "roma"],
-    current: cur(12, 48, 8, 10, 1),
     stays: [{ name: "Hotel Santa Maria", area: "Trastevere", nightly: 165 }],
   }),
   place({
@@ -1088,7 +950,6 @@ export const PLACES: Place[] = [
     guide: "Small enough to walk, dense enough to fill four days if you let a museum take a morning. Santo Spirito is the dinner side. The Duomo is outside your door no matter what, so you do not need to sleep next to it. Siena is the day trip.",
     tags: ["city", "art", "food"],
     aliases: ["florence", "firenze"],
-    current: cur(8, 36, 6, 6, 0),
     stays: [{ name: "Hotel Davanzati", area: "Centro", nightly: 170 }],
   }),
   place({
@@ -1104,7 +965,6 @@ export const PLACES: Place[] = [
     guide: "Pick one town. Amalfi, Positano, or Praiano. Moving hotels along the coast is how a beautiful trip becomes a bus ride. Swim in the morning. The price is the tax for the view. Groups who pretend otherwise write frustrated comments.",
     tags: ["coast", "swim", "expensive"],
     aliases: ["amalfi", "positano", "amalfi coast"],
-    current: cur(4, 28, 2, 2, 0),
     stays: [{ name: "Hotel Marina Riviera", area: "Amalfi", nightly: 280 }],
   }),
   place({
@@ -1120,7 +980,6 @@ export const PLACES: Place[] = [
     guide: "Do not stay in the busiest part of Shinjuku unless you want the lights. Shimokitazawa, Kuramae, or a quiet business hotel near a useful station will make the week. Get an IC card immediately. Temples and teamLab are optional. A day with no plans in a single ward is not.",
     tags: ["city", "food", "rail"],
     aliases: ["tokyo"],
-    current: cur(8, 46, 4, 16, 1),
     stays: [{ name: "Mustard Hotel Shimokitazawa", area: "Shimokitazawa", nightly: 140 }],
   }),
   place({
@@ -1136,7 +995,6 @@ export const PLACES: Place[] = [
     guide: "Fushimi Inari at the gate when it opens, not at noon. Arashiyama is a morning. A machiya split four ways is the stay students brag about, with the caveat that the beds are firmer and the air conditioning is a question to ask. Cash still matters.",
     tags: ["temple", "city", "food"],
     aliases: ["kyoto"],
-    current: cur(6, 40, 4, 12, 0),
     stays: [{ name: "Hotel Kanra", area: "Central Kyoto", nightly: 205 }],
   }),
   place({
@@ -1152,7 +1010,6 @@ export const PLACES: Place[] = [
     guide: "Stay in the Eixample or Gràcia. The Gothic Quarter is a walk, not a bed. Book Sagrada Família or skip it without complaint. The beach is a bonus hour. The city is the point.",
     tags: ["city", "architecture", "beach", "food"],
     aliases: ["barcelona"],
-    current: cur(22, 58, 8, 12, 1),
     stays: [{ name: "Casa Bonay", area: "Eixample", nightly: 165 }],
   }),
   place({
@@ -1168,7 +1025,6 @@ export const PLACES: Place[] = [
     guide: "The Marais or the 11th. A metro pass. One neighborhood a day. Versailles as a single timed morning if the group wants it. The cost is real. A picnic is not a failure of imagination. It is how the better-rated trips afford the museum.",
     tags: ["city", "museum", "food"],
     aliases: ["paris"],
-    current: cur(10, 52, 6, 12, 1),
     stays: [{ name: "Hôtel Jeanne d'Arc", area: "Le Marais", nightly: 185 }],
   }),
   place({
@@ -1184,7 +1040,6 @@ export const PLACES: Place[] = [
     guide: "Shoreditch, Bloomsbury, or a friend's flat. The British Museum and the Tate are free and large enough to end a morning. The tube is the product. Budget like a serious city, because it is one. A day trip to Oxford or the coast only if the group is restless.",
     tags: ["city", "museum"],
     aliases: ["london"],
-    current: cur(10, 40, 8, 12, 8),
     stays: [{ name: "The Hoxton, Shoreditch", area: "Shoreditch", nightly: 175 }],
   }),
   place({
@@ -1200,7 +1055,6 @@ export const PLACES: Place[] = [
     guide: "Arthur's Seat is the free spectacular. The Royal Mile is once. The side streets are the trip. Festival season in August is a different, crowded city. A train up from London is part of the pleasure if you book it early.",
     tags: ["city", "hike"],
     aliases: ["edinburgh", "scotland"],
-    current: cur(4, 22, 6, 4, 1),
     stays: [{ name: "Motel One Edinburgh", area: "Old Town", nightly: 110 }],
   }),
   place({
@@ -1216,7 +1070,6 @@ export const PLACES: Place[] = [
     guide: "Use the city for a pool, a bakery, and a bed. The landscape is a drive. Hallgrímskirkja is a view, not a day. Groups that only stay downtown and take a bus tour rate Iceland lower than groups that rent a car for the south coast.",
     tags: ["city", "base"],
     aliases: ["reykjavik", "reykjavík"],
-    current: cur(6, 30, 3, 8, 0),
     stays: [{ name: "KEX Hostel", area: "Reykjavík", nightly: 95 }],
   }),
   place({
@@ -1232,7 +1085,6 @@ export const PLACES: Place[] = [
     guide: "Alfama to get lost, Belém for the one monument morning, Sintra as a booked day. The tram 28 is a crush. Walking is better. This is one of the few European cities where a student group can eat well without a speech about money.",
     tags: ["city", "food", "affordable"],
     aliases: ["lisbon", "lisboa"],
-    current: cur(12, 40, 6, 8, 1),
     stays: [{ name: "The Lumiares", area: "Bairro Alto", nightly: 175 }],
   }),
   place({
@@ -1248,7 +1100,6 @@ export const PLACES: Place[] = [
     guide: "Hongdae or Ikseon-dong as a base. A palace at opening. The subway in English. Cafes will quietly become a budget line. Students rate the ease of the city almost as highly as the meals.",
     tags: ["city", "food"],
     aliases: ["seoul"],
-    current: cur(8, 44, 4, 14, 1),
     stays: [{ name: "RYSE Hotel", area: "Hongdae", nightly: 150 }],
   }),
   place({
@@ -1264,7 +1115,6 @@ export const PLACES: Place[] = [
     guide: "The square is an hour. The riad, the garden, and a day in the Atlas are the trip. Alleys repeat. Drop a pin at the door when you arrive. Eat where you are not recruited.",
     tags: ["market", "city"],
     aliases: ["marrakech", "marrakesh"],
-    current: cur(24, 16, 4, 10, 0),
     stays: [{ name: "Les Jardins de la Medina", area: "Medina", nightly: 140 }],
   }),
   place({
@@ -1281,7 +1131,6 @@ export const PLACES: Place[] = [
     tags: ["town", "photo", "walk"],
     aliases: ["chefchaouen", "chaouen", "blue city"],
     atlas: "A blue mountain town. Go for the morning alleys.",
-    current: cur(10, 8, 2, 4, 0),
     stays: [{ name: "Dar Echchaouen", area: "Medina", nightly: 70 }],
   }),
   place({
@@ -1298,7 +1147,6 @@ export const PLACES: Place[] = [
     tags: ["hike", "nature", "springs"],
     aliases: ["la fortuna", "arenal"],
     atlas: "Hanging bridges in the forest, then a hot spring. The volcano is a bonus if the clouds move.",
-    current: cur(34, 22, 3, 8, 0),
     stays: [{ name: "Arenal Observatory Lodge", area: "Arenal", nightly: 180 }],
   }),
   place({
@@ -1314,7 +1162,6 @@ export const PLACES: Place[] = [
     guide: "The Acropolis early, the museum after, and then a neighborhood dinner in Pangrati or Petralona. Athens is not a placeholder before the ferry. Groups that give it two full days rate Greece higher than groups that sleepwalk to the port.",
     tags: ["city", "history", "food"],
     aliases: ["athens"],
-    current: cur(8, 26, 4, 6, 0),
     stays: [{ name: "Herodion Hotel", area: "Acropolis", nightly: 170 }],
   }),
   place({
@@ -1331,7 +1178,6 @@ export const PLACES: Place[] = [
     tags: ["mountain", "ski", "expensive"],
     aliases: ["zermatt", "matterhorn"],
     atlas: "Car-free, under the Matterhorn. The village is the base and the view is the point.",
-    current: cur(2, 12, 3, 22, 0),
     stays: [{ name: "Hotel Bahnhof", area: "Zermatt", nightly: 95 }],
   }),
   place({
@@ -1347,7 +1193,6 @@ export const PLACES: Place[] = [
     guide: "Old Montreal once, then the Plateau. Bagels are a real errand. A show if someone looks. You can do this without a passport panic if your documents are already in order, and you should check that before Friday. Four days is the right length.",
     tags: ["city", "food", "fall"],
     aliases: ["montreal", "montréal"],
-    current: cur(4, 10, 48, 8, 6),
     stays: [{ name: "Hotel Gault", area: "Old Montreal", nightly: 185 }],
   }),
 ];
@@ -1501,13 +1346,7 @@ export function assertData(): void {
     if (entry.parentId && !PLACES.some((candidate) => candidate.id === entry.parentId)) {
       throw new Error(`Missing parent for ${entry.id}`);
     }
-    for (const season of SEASON_LIST) {
-      if (entry.history[season].length !== 4) throw new Error(`History length on ${entry.id} ${season}`);
-    }
   }
-  const puertoRico = PLACE_BY_ID.get("pr");
-  const spring2025 = puertoRico?.history.spring.find((row) => row.year === 2025)?.count ?? 0;
-  if (spring2025 < 200) throw new Error("Puerto Rico spring 2025 should tell the 200-student story");
   for (const person of DIRECTORY) {
     if (person.netid === ME.netid) throw new Error("Directory includes the signed-in student");
     for (const trip of person.trips) {

@@ -97,10 +97,19 @@ export function ProfileMenu() {
               setOpen(false);
             }}
           >
-            <span>Upcoming trips</span>
+            <span>Itinerary</span>
           </button>
           <button type="button" role="menuitem" onClick={() => go("settings")}>
             <span>Settings</span>
+          </button>
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={state.theme === "dark"}
+            onClick={() => dispatch({ type: "setTheme", theme: state.theme === "light" ? "dark" : "light" })}
+          >
+            <span>Dark mode</span>
+            <small>{state.theme === "dark" ? "On" : "Off"}</small>
           </button>
           <hr />
           {shared ? (

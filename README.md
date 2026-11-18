@@ -12,18 +12,18 @@ https://hyang365.github.io/grok1/
 
 ## Features
 
-- **Map:** where Yalies travel each break, anonymized. Click a place for ratings, stays and reviews.
+- **Map:** where Yalies travel each break, counted live from students' saved trips (names never shown). Click a place for ratings, stays and reviews.
 - **Catalog and filters:** sort and filter by affordability, safety, beauty, continent and type of trip.
 - **Friends:** add by NetID to see their plans and overlapping dates. Everyone else is just a count.
 - **Yale travel rules:** flags countries Yale won't sponsor (State Dept Level 4) and blocks flights there.
-- **Flights:** plan the trip from Old Campus, then search and book on Google Flights. There's no in-app flight data.
+- **Flights** (Itinerary → Flights): plan the trip from Old Campus, then search and book on Google Flights. There's no in-app flight data.
   - Every airport (Tweed, Bradley, JFK, LGA, Newark, Logan) with the ride from campus, split Uber cost, and when to leave, plus a one-click Google Flights search for that route and your dates.
   - Trains and buses for nearby trips, with transit directions from Old Campus.
   - **Lock the group flight:** enter the flight numbers someone picked on Google Flights. They're saved on the trip with a copyable group-chat message, an exact-flight search link, flight status, and a "who's booked" checklist.
   - **Boycott Avelo** with one switch (hides Tweed, and reminds you to untick Avelo on Google Flights).
-- **Itinerary:** your trips, flights and friends in one place.
+- **Itinerary:** three tabs. Trips (upcoming plans), Flights, and Buses & trains. The top bar is just Map, Catalog, Study Abroad, Friends and Itinerary; dark mode and settings live in the profile menu.
 - **Study Abroad:** every program in Yale's study abroad database: 134 semester and full-year programs, 94 non-Yale summer programs, plus Yale Summer Session Abroad and Yale in London, each with the grants you can apply for (Summer Experience Grant, Light, Gilman, Boren and more) and student reviews. The map has a **Travel / Study abroad** switch; in study abroad mode the top menu picks Fall semester, Spring semester or Summer and the map shows only programs offered then.
-- **Transit:** live CTtransit buses near campus (arrival boards and a live map), plus Metro-North and Amtrak departures from New Haven. Next trains also show on the Flights page.
+- **Buses & trains** (Itinerary → Buses & trains): live CTtransit buses near campus (arrival boards and a live map), plus Metro-North and Amtrak departures from New Haven. Next trains also show on the Flights page.
 - **Profile** (top right): trip history with "log a past trip", a bucket list of places and programs (☆ on any place or program), your reviews, settings, data export, and report-a-bug / suggest-a-feature links that open a prefilled GitHub issue.
 - **Real reviews:** places and programs are rated only by real student reviews. There are no seeded reviews. Posting requires an @yale.edu email.
 
@@ -42,9 +42,12 @@ The site calls each transit provider directly first, then falls back to the `tra
 
 Reported reviews land in the `review_reports` table for you to moderate in the Supabase dashboard.
 
+## Live plan counts
+
+Every count on the map, catalog and place panels ("12 planning", overlap with your dates, history by year) comes from trips Yale students save while signed in. Trips sync to the `trips` table, which only its owner can read; the public sees only anonymous totals through `plan_counts()` and `overlap_count()`. Nothing is seeded.
+
 ## Still sample data
 
-- Yalie counts, cohorts and history on the map and catalog (labeled "sample counts").
 - The friends directory and their trips (the NetIDs in Friends are fictional).
 - Ground-transport times and costs in `src/flights/engine.ts` are rough planning estimates.
 - Trip history, bucket list and settings are saved on your device until accounts are shared.

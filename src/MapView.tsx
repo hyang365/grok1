@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { COUNTRY_BY_ISO, PLACE_BY_ID, PLACES } from "./data";
 import { heatColor, seasonLabel, visitCount } from "./logic";
 import { useCatalog, useFriends, useTripTable } from "./store";
+import { usePlans } from "./live/plans";
 import { ABROAD_CITIES, maxPerCountry, offeredIn, programsIn } from "./abroad/data";
 
 type PointDatum = {
@@ -43,6 +44,7 @@ export function MapView() {
   const { state, dispatch } = useTripTable();
   const { passed, maxCountry } = useCatalog();
   const friends = useFriends();
+  const { version: plansVersion } = usePlans();
   const hostRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
   const paintRef = useRef<() => void>(() => {});
@@ -103,12 +105,12 @@ export function MapView() {
       const count = country ? visitCount(country, state.season) : 0;
       const on = Boolean(country && passed.has(country.id));
       const isSelected = country?.id === state.selectedId;
-      polygon.set("fill", am5.color(on && country ? heatColor(count, maxCountry, dark) : dark ? 0x2a2a2a : 0xf3f3f3));
+      polygon.set("fill", am5.color(on && country && count > 0 ? heatColor(count, maxCountry, dark) : dark ? 0x2a2a2a : 0xf3f3f3));
       polygon.set("stroke", am5.color(isSelected ? (dark ? 0xffffff : 0x141414) : dark ? 0x1a1a1a : 0xffffff));
       polygon.set("strokeWidth", isSelected ? 1.8 : 0.55);
       polygon.set(
         "tooltipText",
-        on && country ? `${country.name}\n${count.toLocaleString("en-US")} Yalies · ${seasonName}` : (ctx?.name ?? ""),
+        on && country ? `${country.name}\n${count ? `${count.toLocaleString("en-US")} planning` : "No plans yet"} · ${seasonName}` : (ctx?.name ?? ""),
       );
     });
 
@@ -127,7 +129,7 @@ export function MapView() {
         latitude: place.lat,
         longitude: place.lng,
         placeId: place.id,
-        tooltip: `${place.name}\n${count.toLocaleString("en-US")} Yalies`,
+        tooltip: `${place.name}\n${count ? `${count.toLocaleString("en-US")} planning` : "No plans yet"}`,
         radius: (place.id === state.selectedId ? 8 : 4) + scale * 7,
         fill: place.id === state.selectedId ? 0x0b3d91 : 0x163e78,
       });
@@ -139,7 +141,7 @@ export function MapView() {
         latitude: place.lat,
         longitude: place.lng,
         placeId: place.id,
-        tooltip: `${place.name}\n${count.toLocaleString("en-US")} Yalies · ${seasonName}`,
+        tooltip: `${place.name}\n${count ? `${count.toLocaleString("en-US")} planning` : "No plans yet"} · ${seasonName}`,
         radius: place.id === state.selectedId ? 12 : 8,
         fill: 0x0b3d91,
       });
@@ -311,7 +313,7 @@ export function MapView() {
 
   useEffect(() => {
     paintRef.current();
-  }, [state.theme, state.season, state.filters, state.showFriends, state.friendNetids, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, passed, friends, maxCountry]);
+  }, [state.theme, state.season, state.filters, state.showFriends, state.friendNetids, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, passed, friends, maxCountry, plansVersion]);
 
   useEffect(() => {
     zoomRef.current();

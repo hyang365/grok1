@@ -670,3 +670,38 @@ legend { padding: 0 4px; font-size: 12px; }
   .season { max-width: 140px; }
   .rail.open { inset: 96px auto 0 0; }
 }
+
+/* Itinerary: Trips / Flights / Buses & trains */
+.topbar-spacer { flex: 1; }
+.trips-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.trips-shell > :not(.trips-tabs) { flex: 1; min-height: 0; }
+.trips-tabs { display: flex; justify-content: center; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--color-border); background: var(--color-surface); flex: none; overflow-x: auto; }
+.trips-tabs button { border: 0; background: transparent; padding: 12px 14px 10px; color: var(--color-text-secondary); font-weight: 600; border-bottom: 2px solid transparent; white-space: nowrap; }
+.trips-tabs button:hover { color: var(--color-text); }
+.trips-tabs button.active { color: var(--color-text); border-bottom-color: var(--color-primary); }
+
+.filters-drawer { border-bottom: 1px solid var(--color-border); }
+.filters-drawer > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-weight: 600; font-size: 13px; }
+.filters-drawer > summary::-webkit-details-marker { display: none; }
+.filters-drawer > summary::after { content: "▾"; margin-left: auto; color: var(--color-text-tertiary); transition: transform 0.15s; }
+.filters-drawer[open] > summary::after { transform: rotate(180deg); }
+.filters-drawer .filters { padding-top: 0; padding-bottom: 12px; }
+
+.nav-short { display: none; }
+.map-actions { display: flex; gap: 6px; }
+.catalog-actions { display: none; }
+.empty-card { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 18px; border: 1px dashed var(--color-border-control); border-radius: 12px; color: var(--color-text-secondary); }
+@media (max-width: 960px) {
+  .catalog-actions { display: flex; position: absolute; top: 8px; right: 12px; z-index: 3; }
+}
+@media (max-width: 760px) {
+  .nav-long { display: none; }
+  .nav-short { display: inline; }
+  .topbar .nav { justify-content: space-between; gap: 0; }
+  .topbar .nav-btn { padding: 0 8px; font-size: 13px; }
+}
+@media (max-width: 760px) {
+  .map-stage > .map-actions:not(.catalog-actions) { top: 58px; }
+  .map-mode { left: 56px; transform: none; }
+  .map-stage.panel-open .map-mode { left: 56px; }
+}
