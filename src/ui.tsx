@@ -213,6 +213,9 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
           Reset filters
         </button>
         <p className="fine">Rating sliders hide places rated below the value. Ratings come only from student reviews.</p>
+        <p className="site-disclaimer">
+          Made by Yale students. Not affiliated with or endorsed by Yale University. Check official Yale and State Department sources before you travel.
+        </p>
       </div>
       </details>
       <div className="list" role="listbox" aria-label="Places">
