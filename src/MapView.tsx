@@ -65,6 +65,27 @@ function setPoints(api: Api, which: "spots" | "pals", data: PointDatum[]) {
   api[which].data.setAll(data);
 }
 
+function mapCenter(chart: am5map.MapChart) {
+  const width = chart.innerWidth();
+  const height = chart.innerHeight();
+  if (width <= 0 || height <= 0) return null;
+  const point = chart.invert({ x: width / 2, y: height / 2 });
+  if (!point || !Number.isFinite(point.longitude) || !Number.isFinite(point.latitude)) return null;
+  return point;
+}
+
+/** True when the chart is already on the fitted world a logo click would ask for. */
+function resting(chart: am5map.MapChart): boolean {
+  const center = mapCenter(chart);
+  if (!center) return false;
+  const zoom = chart.get("zoomLevel", 1) ?? 1;
+  const rotation = chart.get("rotationX", 0) ?? 0;
+  if (zoom > 1.02 || Math.abs(rotation) > 0.6) return false;
+  const home = chart.homeGeoPoint();
+  const lon = Math.abs(center.longitude - home.longitude);
+  return Math.min(lon, 360 - lon) < 0.8 && Math.abs(center.latitude - home.latitude) < 0.8;
+}
+
 function polygonItem(series: am5map.MapPolygonSeries, iso: string) {
   let found: am5.DataItem<am5map.IMapPolygonSeriesDataItem> | undefined;
   series.mapPolygons.each((polygon) => {
@@ -272,7 +293,7 @@ export function MapView() {
           api.polygons.zoomToDataItem(item);
           return;
         }
-        if (focusedRef.current || homeChanged) chart.goHome(400);
+        if (focusedRef.current || (homeChanged && !resting(chart))) chart.goHome(400);
         focusedRef.current = false;
         return;
       }
@@ -283,7 +304,7 @@ export function MapView() {
         return;
       }
       if (!selected) {
-        if (focusedRef.current || homeChanged) chart.goHome(400);
+        if (focusedRef.current || (homeChanged && !resting(chart))) chart.goHome(400);
         focusedRef.current = false;
         return;
       }
@@ -322,10 +343,29 @@ export function MapView() {
         zoomStep: 1.08,
         maxZoomLevel: 800,
         minZoomLevel: 1,
-        homeGeoPoint: { longitude: -18, latitude: 18 },
+        // 0 keeps a zoomed-out world from sliding off the frame. A slide leaves a
+        // rectangle of the ocean background where the continents were.
+        maxPanOut: 0,
         homeZoomLevel: 1,
       }),
     );
+    // The sphere clip is cached in screen space. Turning the map leaves it behind,
+    // so a rectangle of ocean shows where a continent should be. Redraw it on every move.
+    const refreshClip = () => {
+      const mask = (chart as unknown as { _outlineMask?: { set(key: string, value: unknown): void } })._outlineMask;
+      const path = chart.getPrivate("geoPath");
+      if (!mask || !path) return;
+      mask.set("draw", (display: unknown) => {
+        const geo = path as unknown as { context(value: unknown): void; (feature: { type: string }): void };
+        geo.context(display);
+        geo({ type: "Sphere" });
+        geo.context(null);
+      });
+    };
+    chart.on("rotationX", refreshClip);
+    chart.on("zoomLevel", refreshClip);
+    chart.on("translateX", refreshClip);
+    chart.on("translateY", refreshClip);
     const background = am5.Rectangle.new(root, { fill: am5.color(SEA.light), fillOpacity: 1, interactive: true });
     chart.set("background", background);
     chart.set("zoomControl", am5map.ZoomControl.new(root, { x: 12, centerX: 0, y: 12, centerY: 0 }));
