@@ -35,7 +35,7 @@ function reviewCount(id: string): number {
 }
 import { seasonYear, useOverlap, usePlans } from "./live/plans";
 import { BucketButton } from "./profile/ProfileMenu";
-import { FIXED_SCORES, HARVARD_FACTS, HARVARD_ID } from "./fun/harvard";
+import { FIXED_SCORES, HARVARD_ID } from "./fun/harvard";
 import { isPast, isUpcoming } from "./profile/trips";
 
 export function Rating({ value }: { value: number | null }) {
@@ -463,7 +463,7 @@ export function PlacePanel({ place }: { place: Place }) {
         </div>
         <p className="fine score-basis">
           {place.id in FIXED_SCORES
-            ? "Permanently −5.0 on everything. Set by TripTable, not by student reviews, and it isn't changing."
+            ? "Permanently −5.0 on everything. Set by TripTable and it isn't changing, whatever the reviews below say."
             : ratingCount(place.id)
             ? `Based on ${ratingCount(place.id)} ${ratingCount(place.id) === 1 ? "rating" : "ratings"}${children.length ? ` of ${place.name} and its cities and destinations` : ""}.`
             : children.length
@@ -549,17 +549,7 @@ export function PlacePanel({ place }: { place: Place }) {
             </button>
           ))}
         </div>
-        {tab === "evals" && place.id === HARVARD_ID ? (
-          <div className="harvard-closed">
-            <strong>Reviews are closed.</strong>
-            <ul>
-              {HARVARD_FACTS.map((fact) => (
-                <li key={fact}>{fact}</li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {tab === "evals" && place.id !== HARVARD_ID ? (
+        {tab === "evals" ? (
           <ReviewSection
             targetType="place"
             targetId={place.id}

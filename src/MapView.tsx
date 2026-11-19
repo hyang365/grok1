@@ -231,7 +231,7 @@ export function MapView() {
           radius: iconed ? (place.id === state.selectedId ? 10 : 7.5) : 4,
           fill: ICON_FILL.nope,
           icon: iconed ? "nope" : undefined,
-          label: usFocus ? "Harvard (ew)" : undefined,
+          label: usFocus ? "Harvard" : undefined,
         });
         continue;
       }

@@ -31,9 +31,3 @@ export const HARVARD: Place = {
   aliases: ["harvard", "harvard university", "cambridge", "the crimson", "safety school"],
   cat: "landmark",
 };
-
-export const HARVARD_FACTS = [
-  "Rated −5.0 on everything, permanently.",
-  "Reviews are closed. There's nothing left to say.",
-  "Not on Yale's real travel ban list. It just feels like it.",
-];

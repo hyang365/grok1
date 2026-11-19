@@ -765,6 +765,3 @@ details.inside-wrap .inside { margin-bottom: 8px; }
 .ab-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .ab-shell > .ab-page { flex: 1; }
 .rail-select { width: 100%; height: 30px; margin-top: 4px; font-size: 13px; border: 1px solid var(--color-border-control); border-radius: 8px; background: var(--color-surface); color: var(--color-text); padding: 0 8px; }
-.harvard-closed { padding: 12px 14px; border-radius: 10px; background: #fde8e6; color: #7a1c16; }
-.harvard-closed ul { margin: 6px 0 0; padding-left: 18px; }
-:root[data-theme="dark"] .harvard-closed { background: #3a1714; color: #ffb4ab; }
