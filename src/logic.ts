@@ -304,7 +304,8 @@ export function heatColor(count: number, max: number, dark: boolean): number {
  * look clearly different; values in between blend between the two nearest steps.
  */
 const RATING_STEPS_LIGHT = [0xe4eefc, 0xb6d0f4, 0x78a5e2, 0x3a70c4, 0x0d3a8a];
-const RATING_STEPS_DARK = [0x1f2f45, 0x284d80, 0x3a6fb8, 0x6d9be0, 0xb3d1ff];
+// Both themes: lighter = lower rating, darker = higher.
+const RATING_STEPS_DARK = [0xc6ddff, 0x8ab5f2, 0x5287d6, 0x2c60b2, 0x123a80];
 export function ratingColor(score: number, dark: boolean): number {
   const steps = dark ? RATING_STEPS_DARK : RATING_STEPS_LIGHT;
   const x = Math.max(0, Math.min(4, score - 1));
