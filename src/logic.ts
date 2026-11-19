@@ -1,6 +1,7 @@
 import { summaryAvg, summaryCount } from "./reviews/store";
 import { planCount, seasonYear } from "./live/plans";
 import { PLACES } from "./data";
+import { YALE_RECESSES, recessWindow } from "./yaleCalendar";
 import type { Filters, Person, PersonTrip, Place, Season, Trip } from "./types";
 
 export const CURRENT_YEAR = 2026;
@@ -36,6 +37,11 @@ for (const p of PLACES) {
 /** Default dates for a season: Yale's break calendar, rolled to the next occurrence. */
 export function defaultWindow(season: Season): [string, string] {
   const y = seasonYear(season);
+  // Published Yale recesses first (October recess for fall, or November recess once October's has passed).
+  const today = new Date().toISOString().slice(0, 10);
+  const official = YALE_RECESSES.filter((r) => r.season === season && r.year === y && r.leave > today);
+  if (official.length) return recessWindow(official[0]);
+  // Not published yet: the usual Yale pattern.
   if (season === "spring") return [`${y}-03-13`, `${y}-03-21`];
   if (season === "summer") return [`${y}-06-01`, `${y}-06-14`];
   if (season === "fall") return [`${y}-10-15`, `${y}-10-19`];
@@ -189,7 +195,7 @@ export function continentsOf(place: Place): string[] {
   return ISO_CONTINENT[place.iso] ?? ["North America"];
 }
 
-function featureMatch(place: Place, id: string): boolean {
+export function featureMatch(place: Place, id: string): boolean {
   const feature = FEATURES.find((item) => item.id === id);
   return Boolean(feature && feature.tags.some((tag) => place.tags.includes(tag)));
 }

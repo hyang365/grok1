@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useTripTable } from "../store";
 import { GRANTS, KIND_LABEL, PROGRAMS, REGIONS, grantsFor, type Program, type ProgramKind } from "./data";
+import { matchesQuery, passesAbroad } from "./filters";
 import { ReviewSection } from "../reviews/ReviewSection";
 import { BucketButton } from "../profile/ProfileMenu";
 import { PROGRAM_KEYS, summaryAvg, summaryCount, useReviewStore } from "../reviews/store";
@@ -13,30 +14,25 @@ function Stars({ value }: { value: number | null }) {
   return <span className="ab-score">{value.toFixed(1)}<small>/5</small></span>;
 }
 
-export function AbroadView() {
-  useReviewStore();
+export function AbroadView({ toggle }: { toggle?: ReactNode }) {
+  const { version } = useReviewStore();
   const [query, setQuery] = useState("");
-  const [kind, setKind] = useState<ProgramKind | "all">("all");
-  const [region, setRegion] = useState<string>("all");
-  const [grant, setGrant] = useState<string>("all");
   const { state, dispatch } = useTripTable();
+  const f = state.abroadFilters;
+  const patch = (p: Partial<typeof f>) => dispatch({ type: "patchAbroadFilters", patch: p });
   const selectedId = state.abroadProgramId ?? PROGRAMS[0].id;
   const setSelectedId = (id: string) => dispatch({ type: "openProgram", id });
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return PROGRAMS.filter((p) => {
-      if (kind !== "all" && p.kind !== kind) return false;
-      if (region !== "all" && p.region !== region) return false;
-      if (grant !== "all" && !grantsFor(p).some((g) => g.id === grant)) return false;
-      if (!q) return true;
-      return [p.name, p.city, p.country, p.subject, p.language ?? ""].some((s) => s.toLowerCase().includes(q));
-    });
-  }, [query, kind, region, grant]);
+    return PROGRAMS.filter((p) => passesAbroad(p, f) && matchesQuery(p, q));
+  }, [query, f, version]);
 
   const selected = PROGRAMS.find((p) => p.id === selectedId) ?? rows[0] ?? PROGRAMS[0];
 
   return (
+    <div className="ab-shell">
+    {toggle}
     <div className="ab-page">
       <section className="ab-list">
         <header>
@@ -45,17 +41,24 @@ export function AbroadView() {
         </header>
         <input className="search ab-search" type="search" placeholder="Search city, language, subject" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search programs" />
         <div className="ab-filters">
-          <select value={kind} onChange={(e) => setKind(e.target.value as ProgramKind | "all")} aria-label="Program type">
+          <select value={f.kind} onChange={(e) => patch({ kind: e.target.value })} aria-label="Program type">
             <option value="all">All types</option>
             {KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
           </select>
-          <select value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Region">
+          <select value={f.region} onChange={(e) => patch({ region: e.target.value })} aria-label="Region">
             <option value="all">All regions</option>
             {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
-          <select value={grant} onChange={(e) => setGrant(e.target.value)} aria-label="Funding">
+          <select value={f.grant} onChange={(e) => patch({ grant: e.target.value })} aria-label="Funding">
             <option value="all">Any funding</option>
             {Object.values(GRANTS).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+          <select value={String(f.overall)} onChange={(e) => patch({ overall: Number(e.target.value) })} aria-label="Minimum overall rating">
+            <option value="1">Any rating</option>
+            <option value="3">Rated 3+</option>
+            <option value="4">Rated 4+</option>
+            <option value="4.5">Rated 4.5+</option>
+            {[1, 3, 4, 4.5].includes(f.overall) ? null : <option value={String(f.overall)}>Rated {f.overall.toFixed(1)}+</option>}
           </select>
         </div>
         <p className="fine">{rows.length} programs</p>
@@ -83,6 +86,7 @@ export function AbroadView() {
         </a>
       </section>
       <ProgramDetail program={selected} />
+    </div>
     </div>
   );
 }

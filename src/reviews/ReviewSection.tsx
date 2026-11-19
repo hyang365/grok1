@@ -63,26 +63,39 @@ export function ReviewSection({
   keys,
   terms,
   prompt,
+  include = [],
+  nameOf,
 }: {
   targetType: TargetType;
   targetId: string;
   keys: readonly string[];
   terms: string[];
   prompt: string;
+  /** Cities and destinations whose reviews roll up into this one (a country's), each labeled by place. */
+  include?: string[];
+  nameOf?: (id: string) => string;
 }) {
   const { reviews: all, session, loading, error, shared, pages } = useReviewStore();
   // Ratings come from the small server-side summary; written reviews load 20 at a time when this opens.
+  const includeKey = include.join(",");
   useEffect(() => {
-    void reviews.loadTarget(targetType, targetId);
-  }, [targetType, targetId]);
-  const list = reviewsFor(all, targetType, targetId);
-  const mine = session ? list.find((r) => r.userId === session.userId) : undefined;
-  const written = list.filter((r) => r.body.trim());
-  const sum = summaryOf(targetType, targetId);
-  const total = sum?.n ?? 0;
-  const writtenTotal = sum?.written ?? written.length;
+    void reviews.loadTarget(targetType, targetId, false, includeKey ? includeKey.split(",") : []);
+  }, [targetType, targetId, includeKey]);
+  const ids = [targetId, ...include];
+  const own = reviewsFor(all, targetType, targetId);
+  const mine = session ? own.find((r) => r.userId === session.userId) : undefined;
+  const inGroup = new Set(ids);
+  const written = all.filter((r) => r.targetType === targetType && inGroup.has(r.targetId) && r.body.trim());
+  let total = 0;
+  let writtenTotal = 0;
+  for (const id of ids) {
+    const s = summaryOf(targetType, id);
+    total += s?.n ?? 0;
+    writtenTotal += s?.written ?? 0;
+  }
+  if (!total) writtenTotal = written.length;
   const ratingsOnly = Math.max(0, total - writtenTotal);
-  const page = pages.get(keyOf(targetType, targetId));
+  const page = pages.get(include.length ? `${keyOf(targetType, targetId)}+` : keyOf(targetType, targetId));
   const [open, setOpen] = useState(false);
   const [moreBusy, setMoreBusy] = useState(false);
 
@@ -92,14 +105,14 @@ export function ReviewSection({
         {keys.map((k) => (
           <div key={k}>
             <span className="field-label">{label(k)}</span>
-            <ScoreValue value={summaryAvg(targetType, [targetId], k)} />
+            <ScoreValue value={summaryAvg(targetType, ids, k)} />
           </div>
         ))}
       </div>
       <p className="fine">
         {total === 0
           ? "No reviews yet."
-          : `${writtenTotal} ${writtenTotal === 1 ? "review" : "reviews"}${ratingsOnly ? ` and ${ratingsOnly} ${ratingsOnly === 1 ? "rating" : "ratings"}` : ""} from Yale students.`}
+          : `${writtenTotal} ${writtenTotal === 1 ? "review" : "reviews"}${ratingsOnly ? ` and ${ratingsOnly} ${ratingsOnly === 1 ? "rating" : "ratings"}` : ""} from Yale students${include.length ? ", including its cities and destinations" : ""}.`}
         {!shared ? " Reviews are saved on this device only until the site's database is connected." : ""}
       </p>
       {error ? <p className="form-error">{error}</p> : null}
@@ -137,6 +150,9 @@ export function ReviewSection({
               <strong>{session && r.userId === session.userId ? "You (shown as Anonymous)" : "Anonymous Yale student"}</strong>
               <span className="fine">{r.term} {r.year}</span>
             </div>
+            {include.length ? (
+              <span className={r.targetId === targetId ? "rv-where whole" : "rv-where"}>{r.targetId === targetId ? "Whole country" : (nameOf?.(r.targetId) ?? r.targetId)}</span>
+            ) : null}
             <p className="fine">{keys.map((k) => `${label(k)} ${r.ratings[k] ?? "—"}`).join(" · ")}</p>
             <p>{r.body}</p>
             <div className="rv-actions">
@@ -156,7 +172,7 @@ export function ReviewSection({
           disabled={moreBusy}
           onClick={async () => {
             setMoreBusy(true);
-            await reviews.loadTarget(targetType, targetId, true);
+            await reviews.loadTarget(targetType, targetId, true, include);
             setMoreBusy(false);
           }}
         >

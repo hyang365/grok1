@@ -755,3 +755,13 @@ details.inside-wrap .inside { margin-bottom: 8px; }
 .pin-form input, .pin-form textarea { width: 100%; }
 .legend-bar { background: linear-gradient(90deg, #e4eefc, #b6d0f4, #78a5e2, #3a70c4, #0d3a8a); }
 :root[data-theme="dark"] .legend-bar { background: linear-gradient(90deg, #1f2f45, #284d80, #3a6fb8, #6d9be0, #b3d1ff); }
+
+/* Catalog: travel / study abroad switch */
+.catalog-bar { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; border-bottom: 1px solid var(--color-border); background: var(--color-surface); flex: none; }
+.catalog-stage > .catalog-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 2; }
+.catalog-stage.panel-open > .catalog-bar { right: 444px; }
+.catalog-stage .catalog { top: 48px; }
+.catalog-toggle { margin-top: 0; grid-template-columns: repeat(2, minmax(110px, 1fr)); }
+.ab-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ab-shell > .ab-page { flex: 1; }
+.rail-select { width: 100%; height: 30px; margin-top: 4px; font-size: 13px; border: 1px solid var(--color-border-control); border-radius: 8px; background: var(--color-surface); color: var(--color-text); padding: 0 8px; }

@@ -48,10 +48,11 @@ async function load() {
   const senders = [...new Set(incomingRows.map((r) => r.from_user))];
   const { data: profs } = senders.length ? await supabase.from("profiles").select("id,email,full_name").in("id", senders) : { data: [] };
   const names = new Map(((profs as Pick<Profile, "id" | "email" | "full_name">[]) ?? []).map((p) => [p.id, displayName(p)]));
-  emit({
-    incoming: incomingRows.map((r) => ({ ...r, fromName: names.get(r.from_user) ?? "A friend" })),
-    sent: rows.filter((r) => r.from_user === uid),
-  });
+  const incoming = incomingRows.map((r) => ({ ...r, fromName: names.get(r.from_user) ?? "A friend" }));
+  const sent = rows.filter((r) => r.from_user === uid);
+  // Background refreshes that change nothing don't re-render.
+  if (JSON.stringify([incoming, sent]) === JSON.stringify([snap.incoming, snap.sent])) return;
+  emit({ incoming, sent });
 }
 
 reviews.subscribe(() => {

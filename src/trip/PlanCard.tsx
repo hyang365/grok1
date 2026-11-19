@@ -8,7 +8,7 @@ import { leaveByLine, countdownLabel } from "./TripDetail";
 import { invites } from "./invites";
 import "./trip.css";
 
-const BREAK_SEASON: Record<string, Season> = { nov: "fall", win: "winter", spr: "spring", sum: "summer" };
+const BREAK_SEASON: Record<string, Season> = { oct: "fall", nov: "fall", win: "winter", spr: "spring", sum: "summer" };
 
 /** The "Plan a trip" card at the top of a place panel: dates, who's coming, and how to get there, in one place. */
 export function PlanCard({ place, startOpen = false, onSaved }: { place: Place; startOpen?: boolean; onSaved?: () => void }) {
@@ -134,7 +134,7 @@ function PlanForm({ place, existing, expanded, onExpand, onDone, friends, state,
       <p className="field-label">When</p>
       <div className="pc-chips">
         {upcoming.map((b) => {
-          const end = b.id === "win" || b.id === "sum" ? addDays(b.start, 10) : b.end;
+          const end = b.id === "win" || b.id === "sum" ? (addDays(b.start, 10) < b.end ? addDays(b.start, 10) : b.end) : b.end;
           const on = win[0] === b.start && win[1] === end;
           return (
             <button
@@ -172,6 +172,10 @@ function PlanForm({ place, existing, expanded, onExpand, onDone, friends, state,
         </label>
       </div>
       {invalid ? <p className="form-error">The return date is before the leave date.</p> : <p className="fine">{nights} {nights === 1 ? "night" : "nights"}</p>}
+      {(() => {
+        const r = BREAKS.find((b) => win[0] >= addDays(b.start, -2) && win[0] <= b.end);
+        return r ? <p className="fine">Yale calendar · {r.label}: {r.note}</p> : null;
+      })()}
 
       <p className="field-label">Who's coming</p>
       {friends.length ? (

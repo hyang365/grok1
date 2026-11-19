@@ -291,12 +291,12 @@ export const ABROAD_CITIES: AbroadCity[] = (() => {
 })();
 
 /** Whether a program runs in the given term. Full-year programs count for both semesters. */
-export function offeredIn(program: Program, term: "Spring" | "Fall" | "Summer"): boolean {
-  if (program.terms.includes(term)) return true;
+export function offeredIn(program: Program, term: "Spring" | "Fall" | "Summer" | "All"): boolean {
+  if (term === "All" || program.terms.includes(term)) return true;
   return term !== "Summer" && program.terms.includes("Academic Year");
 }
 
-export function programsIn(iso: string, term?: "Spring" | "Fall" | "Summer"): Program[] {
+export function programsIn(iso: string, term?: "Spring" | "Fall" | "Summer" | "All"): Program[] {
   return PROGRAMS.filter((p) => p.iso === iso && (!term || offeredIn(p, term)));
 }
 

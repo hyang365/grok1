@@ -25,6 +25,7 @@ function emit(patch: Partial<Snapshot>) {
 }
 
 let currentUser: string | null = null;
+let lastSig = "";
 
 export function displayName(p: Pick<Profile, "full_name" | "email"> | null | undefined): string {
   if (!p) return "Guest";
@@ -43,10 +44,12 @@ function toPerson(p: Profile, trips: PersonTrip[]): Person {
 
 async function load() {
   if (!supabase || !currentUser) {
+    lastSig = "";
     emit({ me: null, friends: [], requests: [], loading: false });
     return;
   }
-  emit({ loading: true });
+  // Only the first load shows "loading"; background refreshes stay quiet.
+  if (!snap.me) emit({ loading: true });
   const uid = currentUser;
   const [{ data: meRow }, { data: links }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", uid).maybeSingle(),
@@ -83,6 +86,9 @@ async function load() {
     const { data } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
     me = (data as Profile | null) ?? (session ? { id: uid, email: session.email, full_name: "", avatar_url: null, college: "", class_year: "" } : null);
   }
+  const sig = JSON.stringify([me, friends, requests]);
+  if (sig === lastSig && !snap.loading) return;
+  lastSig = sig;
   emit({ me, friends, requests, loading: false });
 }
 

@@ -167,7 +167,7 @@ function unb64url(s: string): string {
 
 export function inviteLink(trip: Trip, name: string, id: string): string {
   const inv: Invite = { v: 1, p: trip.placeId, s: trip.season, a: trip.start, b: trip.end, n: name.slice(0, 60), i: id, f: (trip.flights ?? []).slice(0, 6) };
-  return `${location.origin}${location.pathname}?join=${b64url(JSON.stringify(inv))}`;
+  return `${location.origin}${location.pathname.replace(/[^/]*$/, "")}?join=${b64url(JSON.stringify(inv))}`;
 }
 
 const SEASONS = new Set(["spring", "summer", "fall", "winter", "weekend"]);

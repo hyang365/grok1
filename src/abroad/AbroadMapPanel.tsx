@@ -1,13 +1,16 @@
 import { summaryAvg, useReviewStore } from "../reviews/store";
 import { useTripTable } from "../store";
 import { KIND_LABEL, grantsFor, programsIn } from "./data";
+import { matchesQuery, passesAbroad } from "./filters";
 
 export function AbroadMapPanel({ iso }: { iso: string }) {
   const { state, dispatch } = useTripTable();
   useReviewStore();
   const term = state.abroadTerm;
-  const programs = programsIn(iso, term);
-  const termLabel = term === "Summer" ? "Summer" : `${term} semester`;
+  const q = state.filters.query.trim().toLowerCase();
+  const inTerm = programsIn(iso, term);
+  const programs = inTerm.filter((p) => passesAbroad(p, state.abroadFilters) && matchesQuery(p, q));
+  const termLabel = term === "All" ? "All terms" : term === "Summer" ? "Summer" : `${term} semester`;
   if (!programs.length) {
     return (
       <aside className="panel">
@@ -16,7 +19,13 @@ export function AbroadMapPanel({ iso }: { iso: string }) {
             <h2>{programsIn(iso)[0]?.country ?? "No programs"}</h2>
             <button className="icon-btn" type="button" aria-label="Close" onClick={() => dispatch({ type: "selectAbroad", iso: null })}>×</button>
           </div>
-          <p className="fl-muted">No Yale-approved programs here for {termLabel.toLowerCase()}. Try another term at the top.</p>
+          <p className="fl-muted">
+            {inTerm.length
+              ? `${inTerm.length} ${inTerm.length === 1 ? "program runs" : "programs run"} here, but none match your filters.`
+              : term === "All"
+                ? "No Yale-approved programs here."
+                : `No Yale-approved programs here for ${termLabel.toLowerCase()}. Try another term at the top.`}
+          </p>
         </div>
       </aside>
     );

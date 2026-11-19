@@ -9,6 +9,7 @@ import { useCatalog, useFriends, useTripTable } from "./store";
 import { usePlans } from "./live/plans";
 import { summaryAvg, useReviewStore } from "./reviews/store";
 import { ABROAD_CITIES, offeredIn, programsIn } from "./abroad/data";
+import { matchesQuery, passesAbroad } from "./abroad/filters";
 
 type PointDatum = {
   latitude: number;
@@ -52,7 +53,16 @@ type Api = {
   background: am5.Rectangle;
   ready: boolean;
   seen: Set<string>;
+  /** What the point series last drew, so a refresh that changes nothing doesn't redraw (and flash) the dots. */
+  drawn: { spots: string; pals: string };
 };
+
+function setPoints(api: Api, which: "spots" | "pals", data: PointDatum[]) {
+  const sig = JSON.stringify(data);
+  if (api.drawn[which] === sig) return;
+  api.drawn[which] = sig;
+  api[which].data.setAll(data);
+}
 
 function polygonItem(series: am5map.MapPolygonSeries, iso: string) {
   let found: am5.DataItem<am5map.IMapPolygonSeriesDataItem> | undefined;
@@ -102,10 +112,12 @@ export function MapView() {
     api.background.set("fill", am5.color(sea));
     if (abroad) {
       const term = state.abroadTerm;
-      const termLabel = term === "Summer" ? "summer" : `${term.toLowerCase()} semester`;
+      const termLabel = term === "All" ? "" : term === "Summer" ? "summer " : `${term.toLowerCase()} semester `;
+      const q = state.filters.query.trim().toLowerCase();
+      const keep = (p: (typeof ABROAD_CITIES)[number]["programs"][number]) => passesAbroad(p, state.abroadFilters) && matchesQuery(p, q);
       api.polygons.mapPolygons.each((polygon) => {
         const ctx = polygon.dataItem?.dataContext as { id?: string; name?: string } | undefined;
-        const progs = ctx?.id ? programsIn(ctx.id, term) : [];
+        const progs = ctx?.id ? programsIn(ctx.id, term).filter(keep) : [];
         const n = progs.length;
         const isSelected = Boolean(ctx?.id && ctx.id === state.abroadIso);
         polygon.set("interactive", true);
@@ -120,13 +132,13 @@ export function MapView() {
         polygon.set(
           "tooltipText",
           n
-            ? `${ctx?.name ?? ""}\n${n} ${termLabel} ${n === 1 ? "program" : "programs"} · ${rating !== null ? `rated ${rating.toFixed(1)} overall` : "not rated yet"}`
+            ? `${ctx?.name ?? ""}\n${n} ${termLabel}${n === 1 ? "program" : "programs"} · ${rating !== null ? `rated ${rating.toFixed(1)} overall` : "not rated yet"}`
             : (ctx?.name ?? ""),
         );
       });
       const spots: PointDatum[] = [];
       for (const city of ABROAD_CITIES) {
-        const progs = city.programs.filter((p) => offeredIn(p, term));
+        const progs = city.programs.filter((p) => offeredIn(p, term) && keep(p));
         if (!progs.length) continue;
         const names = progs.slice(0, 6).map((p) => p.name);
         if (progs.length > 6) names.push(`+${progs.length - 6} more`);
@@ -140,8 +152,8 @@ export function MapView() {
           fill: 0x0b3d91,
         });
       }
-      api.spots.data.setAll(spots);
-      api.pals.data.setAll([]);
+      setPoints(api, "spots", spots);
+      setPoints(api, "pals", []);
       return;
     }
     api.polygons.mapPolygons.each((polygon) => {
@@ -230,8 +242,8 @@ export function MapView() {
         }
       }
     }
-    api.spots.data.setAll(spots);
-    api.pals.data.setAll(friendDots);
+    setPoints(api, "spots", spots);
+    setPoints(api, "pals", friendDots);
   };
 
   zoomRef.current = () => {
@@ -411,7 +423,7 @@ export function MapView() {
     attach(spots);
     attach(pals);
 
-    const api: Api = { root, chart, polygons, spots, pals, states, background, ready: false, seen: new Set() };
+    const api: Api = { root, chart, polygons, spots, pals, states, background, ready: false, seen: new Set(), drawn: { spots: "", pals: "" } };
     apiRef.current = api;
     polygons.events.on("datavalidated", () => {
       const seen = new Set<string>();
@@ -422,7 +434,9 @@ export function MapView() {
       api.seen = seen;
       api.ready = true;
       paintRef.current();
-      zoomRef.current();
+      // A freshly mounted map (e.g. opened from "Reviews of …" on a trip) settles its size and home
+      // position over its first frames; zooming before that lands in the wrong place. Wait for it.
+      root.events.once("frameended", () => window.setTimeout(() => zoomRef.current(), 60));
     });
 
     return () => {
@@ -433,7 +447,7 @@ export function MapView() {
 
   useEffect(() => {
     paintRef.current();
-  }, [state.theme, state.season, state.filters, state.showFriends, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, passed, friends, maxCountry, plansVersion, reviewsVersion]);
+  }, [state.theme, state.season, state.filters, state.showFriends, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, state.abroadFilters, passed, friends, maxCountry, plansVersion, reviewsVersion]);
 
   useEffect(() => {
     zoomRef.current();

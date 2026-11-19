@@ -64,6 +64,19 @@ export type SortKey = "yalies" | "overall" | "affordability" | "safety" | "beaut
 export type ThemeName = "light" | "dark";
 export type MapMode = "travel" | "abroad";
 export type AbroadTerm = "Spring" | "Fall" | "Summer";
+/** The term picker on the study abroad map: one term, or every program at once. */
+export type AbroadTermPick = AbroadTerm | "All";
+/** Filters for study abroad programs (map rail and catalog). Ratings are minimums; 1 means any. */
+export type AbroadFilters = {
+  kind: string;
+  region: string;
+  grant: string;
+  overall: number;
+  academics: number;
+  housing: number;
+  value: number;
+  minGrants: number;
+};
 export type ViewName = "map" | "catalog" | "friends" | "itinerary" | "flights" | "abroad" | "transit" | "profile";
 
 export type Filters = {

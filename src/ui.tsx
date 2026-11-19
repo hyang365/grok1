@@ -23,7 +23,8 @@ import {
   visitCount,
   SEASONS,
 } from "./logic";
-import { ABROAD_CITIES, offeredIn, REGIONS } from "./abroad/data";
+import { ABROAD_CITIES, GRANTS, KIND_LABEL, offeredIn, REGIONS } from "./abroad/data";
+import { ABROAD_METRICS, DEFAULT_ABROAD_FILTERS, abroadActiveCount, matchesQuery, passesAbroad } from "./abroad/filters";
 import { DEFAULT_FILTERS, useCatalog, useFriends, useTripTable } from "./store";
 import type { Place, Season, SortKey } from "./types";
 import { ReviewSection } from "./reviews/ReviewSection";
@@ -118,18 +119,15 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
 
 function AbroadRail({ open, onPick }: { open: boolean; onPick: () => void }) {
   const { state, dispatch } = useTripTable();
-  const [region, setRegion] = useState<string | null>(null);
+  const { version } = useReviewStore();
   const term = state.abroadTerm;
+  const f = state.abroadFilters;
+  const patch = (p: Partial<typeof f>) => dispatch({ type: "patchAbroadFilters", patch: p });
   const q = state.filters.query.trim().toLowerCase();
   const countries = useMemo(() => {
     const map = new Map<string, { iso: string; name: string; count: number; cities: string[] }>();
     for (const city of ABROAD_CITIES) {
-      const matched = city.programs.filter((program) => {
-        if (!offeredIn(program, term)) return false;
-        if (region && program.region !== region) return false;
-        if (!q) return true;
-        return `${program.country} ${program.city} ${program.name} ${program.subject} ${program.language ?? ""}`.toLowerCase().includes(q);
-      });
+      const matched = city.programs.filter((program) => offeredIn(program, term) && passesAbroad(program, f) && matchesQuery(program, q));
       if (!matched.length) continue;
       const row = map.get(city.iso) ?? { iso: city.iso, name: matched[0].country, count: 0, cities: [] };
       row.count += matched.length;
@@ -137,7 +135,8 @@ function AbroadRail({ open, onPick }: { open: boolean; onPick: () => void }) {
       map.set(city.iso, row);
     }
     return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  }, [term, region, q]);
+  }, [term, f, q, version]);
+  const active = abroadActiveCount(f);
   return (
     <aside className={open ? "rail open" : "rail"}>
       <div className="rail-head">
@@ -146,30 +145,68 @@ function AbroadRail({ open, onPick }: { open: boolean; onPick: () => void }) {
           <span>
             {countries.length} {countries.length === 1 ? "country" : "countries"}
           </span>
-          <span>{term === "Summer" ? "Summer" : `${term} semester`}</span>
+          <span>{term === "All" ? "All terms" : term === "Summer" ? "Summer" : `${term} semester`}</span>
         </div>
       </div>
       <details className="filters-drawer" open>
-        <summary>Region</summary>
+        <summary>
+          Filters
+          {active ? <span className="badge">{active}</span> : null}
+        </summary>
         <div className="filters">
+          {ABROAD_METRICS.map(([key, label]) => (
+            <Slider key={key} label={label} min={1} max={5} step={0.1} value={f[key]} display={thresholdLabel(f[key])} onChange={(value) => patch({ [key]: value })} />
+          ))}
+          <Slider
+            label="Grants you can use"
+            min={0}
+            max={6}
+            step={1}
+            value={f.minGrants}
+            display={f.minGrants === 0 ? "Any" : `≥ ${f.minGrants}`}
+            onChange={(value) => patch({ minGrants: value })}
+          />
+          <p className="field-label">Program type</p>
+          <div className="choice-row">
+            {(Object.keys(KIND_LABEL) as (keyof typeof KIND_LABEL)[]).map((k) => (
+              <button key={k} type="button" className={f.kind === k ? "on" : ""} onClick={() => patch({ kind: f.kind === k ? "all" : k })}>
+                {KIND_LABEL[k]}
+              </button>
+            ))}
+          </div>
+          <p className="field-label">Region</p>
           <div className="choice-row">
             {REGIONS.map((name) => (
-              <button key={name} type="button" className={region === name ? "on" : ""} onClick={() => setRegion(region === name ? null : name)}>
+              <button key={name} type="button" className={f.region === name ? "on" : ""} onClick={() => patch({ region: f.region === name ? "all" : name })}>
                 {name}
               </button>
             ))}
           </div>
+          <label className="slider">
+            <span className="slider-top">
+              <span>Funding</span>
+            </span>
+            <select className="rail-select" value={f.grant} onChange={(e) => patch({ grant: e.target.value })} aria-label="Funding">
+              <option value="all">Any funding</option>
+              {Object.values(GRANTS).map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             className="textlink"
             type="button"
-            disabled={!region && !state.filters.query}
+            disabled={!active && !state.filters.query}
             onClick={() => {
-              setRegion(null);
+              patch({ ...DEFAULT_ABROAD_FILTERS });
               dispatch({ type: "patchFilters", patch: { query: "" } });
             }}
           >
             Reset filters
           </button>
+          <p className="fine">Rating sliders hide programs rated below the value, and programs nobody has rated yet. Ratings come only from student reviews.</p>
         </div>
       </details>
       <div className="list" role="listbox" aria-label="Study abroad countries">
@@ -505,6 +542,8 @@ export function PlacePanel({ place }: { place: Place }) {
             keys={PLACE_KEYS}
             terms={SEASONS.map((item) => item.label)}
             prompt="Where you stayed, what it cost, how safe it felt, what you'd tell a friend going next"
+            include={place.kind === "country" ? children.map((c) => c.id) : []}
+            nameOf={(id) => lookupPlace(id)?.name ?? id}
           />
         ) : null}
         {tab === "stays" ? (

@@ -68,3 +68,11 @@ alter table public.profiles add constraint profiles_avatar_url_check
 -- Migration "trip_invites": invites between accepted friends. Only the sender can create (as pending),
 -- only the recipient can accept/decline, outsiders can't see them; rate-limited to 40/hour.
 -- Migration "trip_details": trips.details jsonb (flights, people, notes, checklist), max 16 KB.
+
+-- ---------- shared_trip_notes ----------
+-- trip_notes(place, start, end): notes saved by friends on the same trip (same place, overlapping
+-- dates, and one of the two listed the other on their trip). Authenticated only.
+
+-- ---------- google_calendar_links ----------
+-- private.gcal_links(user_id, refresh_token, events): Google Calendar refresh tokens, readable only by the
+-- gcal edge function through gcal_get / gcal_save / gcal_set_events / gcal_forget (service_role only).

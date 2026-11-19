@@ -18,14 +18,23 @@ export async function refreshPlans() {
     return;
   }
   const { data, error } = await supabase.rpc("plan_counts");
+  if (error && snap.loaded) return; // keep showing the last good numbers
   const counts = new Map<string, number>();
   if (!error && Array.isArray(data)) {
     for (const row of data as { place_id: string; season: string; year: number; plans: number }[]) {
       counts.set(key(row.place_id, row.season, row.year), row.plans);
     }
   }
+  // Nothing changed: don't re-render (re-rendering is what made numbers and map dots flash).
+  if (snap.loaded && sameCounts(snap.counts, counts)) return;
   snap = { counts, loaded: true, version: snap.version + 1 };
   listeners.forEach((fn) => fn());
+}
+
+function sameCounts(a: Map<string, number>, b: Map<string, number>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [k, v] of a) if (b.get(k) !== v) return false;
+  return true;
 }
 
 let started = false;
@@ -78,20 +87,21 @@ export function seasonYear(season: Season, now = new Date()): number {
 
 /** How many other students overlap the given dates at a place. Null while loading or offline. */
 export function useOverlap(placeId: string | null, start?: string, end?: string): number | null {
-  const [n, setN] = useState<number | null>(null);
+  const key = placeId && start && end ? `${placeId}|${start}|${end}` : "";
+  const [state, setState] = useState<{ key: string; n: number | null }>({ key: "", n: null });
   const { version } = usePlans();
   useEffect(() => {
     let alive = true;
-    setN(null);
-    if (!supabase || !placeId || !start || !end) return;
+    if (!supabase || !key) return;
+    // Refreshes keep the current number on screen until the new one arrives (no blank, no jump).
     supabase.rpc("overlap_count", { p_place: placeId, p_start: start, p_end: end }).then(({ data, error }) => {
-      if (alive && !error && typeof data === "number") setN(data);
+      if (alive && !error && typeof data === "number") setState((cur) => (cur.key === key && cur.n === data ? cur : { key, n: data }));
     });
     return () => {
       alive = false;
     };
-  }, [placeId, start, end, version]);
-  return n;
+  }, [key, version]); // eslint-disable-line react-hooks/exhaustive-deps
+  return state.key === key ? state.n : null;
 }
 
 // ---------- syncing your own trips (signed-in Yale accounts only) ----------
@@ -104,7 +114,20 @@ let lastSynced = new Map<string, string>();
 function detailsOf(t: Trip): Details {
   return { note: t.note, friendNetids: t.friendNetids, flights: t.flights ?? [], checklist: t.checklist ?? [] };
 }
-const sig = (t: Omit<Row, "id">) => JSON.stringify([t.place_id, t.season, t.start_date, t.end_date, t.details ?? {}]);
+/** JSON with object keys sorted: the database (jsonb) reorders keys, so plain JSON never matched. */
+function canonical(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonical).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o)
+      .filter((k) => o[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonical(o[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(v ?? null);
+}
+const sig = (t: Omit<Row, "id">) => canonical([t.place_id, t.season, t.start_date, t.end_date, t.details ?? {}]);
 
 /**
  * Push local trips (with their flights, friends, notes and checklist) to the database and remove ones you deleted.

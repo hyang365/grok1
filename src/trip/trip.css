@@ -102,7 +102,7 @@
 .td-cost p { margin: 0; }
 .td-links { display: flex; flex-wrap: wrap; gap: 12px; margin: 0; font-size: 13px; align-items: center; }
 .td-links .textlink { padding: 0; }
-.td-footer { display: flex; gap: 16px; justify-content: flex-end; margin-top: 16px; }
+.td-footer { display: flex; gap: 16px; justify-content: flex-end; align-items: center; flex-wrap: wrap; margin-top: 16px; }
 
 /* ---------- Join an invite ---------- */
 .jt h2 { margin: 2px 0 6px; font-size: 21px; letter-spacing: -0.02em; }
@@ -148,3 +148,27 @@
 @media (max-width: 900px) {
   .itinerary.itin-layout { grid-template-columns: 1fr; }
 }
+.td-overlap { min-height: 1.5em; }
+
+/* Trip page: the destination at a glance */
+.place-summary { list-style: none; margin: 4px 0 14px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ps-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); min-width: 0; }
+.ps-icon { width: 28px; height: 28px; flex: none; padding: 6px; border-radius: 8px; fill: var(--color-primary); background: var(--color-primary-subdued); }
+.ps-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.ps-text b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-text small { font-size: 11px; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-great .ps-icon, .ps-good .ps-icon { fill: #0b7a32; background: #d9f5e3; }
+.ps-ok .ps-icon { fill: #8d5b00; background: #fff3d6; }
+.ps-low .ps-icon { fill: #b3261e; background: #fde8e6; }
+.ps-none .ps-icon { fill: var(--color-text-tertiary); background: var(--color-surface-contrast); }
+:root[data-theme="dark"] .ps-great .ps-icon, :root[data-theme="dark"] .ps-good .ps-icon { fill: #8ee2ad; background: #123322; }
+:root[data-theme="dark"] .ps-ok .ps-icon { fill: #ffd78a; background: #3a2e12; }
+:root[data-theme="dark"] .ps-low .ps-icon { fill: #ffb4ab; background: #3a1714; }
+.td-note-label { display: block; margin-bottom: 4px; }
+.td-shared-notes { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.td-shared-notes li { padding: 9px 11px; border-radius: 10px; background: var(--color-surface-contrast); }
+.td-shared-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.td-shared-notes p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.td-gcal { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.td-gcal-on { color: #0b7a32; font-weight: 600; font-size: 13px; }
+:root[data-theme="dark"] .td-gcal-on { color: #8ee2ad; }

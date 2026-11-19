@@ -5,7 +5,9 @@ import { useAccount } from "./account/account";
 import { useReviewStore } from "./reviews/store";
 import { usePlans } from "./live/plans";
 import { passesFilters, sortScore, visitCount } from "./logic";
-import type { AbroadTerm, BucketItem, ProfileTab, FlightLeg, GroupFlight, Filters, MapMode, Person, Place, Season, Scope, SortKey, ThemeName, Trip, TripFlight, ViewName } from "./types";
+import { DEFAULT_ABROAD_FILTERS, sanitizeAbroadFilters } from "./abroad/filters";
+import { parseRoute, type Route } from "./router";
+import type { AbroadFilters, AbroadTermPick, BucketItem, ProfileTab, FlightLeg, GroupFlight, Filters, MapMode, Person, Place, Season, Scope, SortKey, ThemeName, Trip, TripFlight, ViewName } from "./types";
 
 export const DEFAULT_FILTERS: Filters = {
   overall: 1,
@@ -42,7 +44,8 @@ export type State = {
   toast: string | null;
   homeTick: number;
   mapMode: MapMode;
-  abroadTerm: AbroadTerm;
+  abroadTerm: AbroadTermPick;
+  abroadFilters: AbroadFilters;
   bucket: BucketItem[];
   profileTab: ProfileTab;
   abroadIso: string | null;
@@ -74,7 +77,8 @@ function defaultState(): State {
     toast: null,
     homeTick: 0,
     mapMode: "travel",
-    abroadTerm: "Fall",
+    abroadTerm: "All",
+    abroadFilters: { ...DEFAULT_ABROAD_FILTERS },
     bucket: [],
     profileTab: "history",
     abroadIso: null,
@@ -124,7 +128,25 @@ function sanitizeGroupFlight(value: unknown): GroupFlight | undefined {
   };
 }
 
+/** Show the page an address points to (on load, and on the back and forward buttons). */
+function applyRoute(state: State, route: Route): State {
+  let next: State = { ...state, view: route.view };
+  if (route.view === "map" && route.mapMode && route.mapMode !== state.mapMode) {
+    next = { ...next, mapMode: route.mapMode, abroadIso: null, selectedId: null, emptyGeo: null };
+  }
+  if (route.view === "itinerary") next.openTripId = route.tripId && state.trips.some((t) => t.id === route.tripId) ? route.tripId : null;
+  if (route.view === "profile" && route.profileTab) next.profileTab = route.profileTab;
+  if (route.view === "abroad" && route.programId) next.abroadProgramId = route.programId;
+  return next;
+}
+
 function loadState(): State {
+  const stored = loadStored();
+  const route = typeof location === "undefined" ? null : parseRoute();
+  return route ? applyRoute(stored, route) : { ...stored, view: "map", openTripId: null };
+}
+
+function loadStored(): State {
   const base = defaultState();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -152,7 +174,8 @@ function loadState(): State {
       emptyGeo: null,
       homeTick: 0,
       mapMode,
-      abroadTerm: data.abroadTerm === "Spring" || data.abroadTerm === "Summer" ? data.abroadTerm : "Fall",
+      abroadTerm: data.abroadTerm === "Spring" || data.abroadTerm === "Summer" || data.abroadTerm === "Fall" ? data.abroadTerm : "All",
+      abroadFilters: sanitizeAbroadFilters(data.abroadFilters),
       bucket: Array.isArray(data.bucket)
         ? data.bucket.filter((b): b is BucketItem => Boolean(b && typeof b.targetId === "string" && (b.kind === "place" || b.kind === "program")))
         : [],
@@ -184,7 +207,9 @@ export type Action =
   | { type: "reset" }
   | { type: "setMapMode"; mode: MapMode }
   | { type: "selectAbroad"; iso: string | null }
-  | { type: "setAbroadTerm"; term: AbroadTerm }
+  | { type: "setAbroadTerm"; term: AbroadTermPick }
+  | { type: "patchAbroadFilters"; patch: Partial<AbroadFilters> }
+  | { type: "route"; route: Route }
   | { type: "toggleBucket"; kind: BucketItem["kind"]; targetId: string; label?: string }
   | { type: "setBucketDone"; id: string; done: boolean }
   | { type: "openProfile"; tab: ProfileTab }
@@ -212,6 +237,8 @@ function reducer(state: State, action: Action): State {
         selectedId: action.id,
         emptyGeo: null,
         view: state.view === "catalog" ? "catalog" : action.id ? "map" : state.view,
+        // Places live on the travel layer: opening one from elsewhere switches the map back to it.
+        ...(action.id ? { mapMode: "travel" as const, abroadIso: null } : {}),
       };
     case "selectEmpty":
       return { ...state, selectedId: null, emptyGeo: { iso: action.iso, name: action.name }, view: "map" };
@@ -273,6 +300,10 @@ function reducer(state: State, action: Action): State {
       return { ...state, view: "profile", profileTab: action.tab };
     case "setAbroadTerm":
       return { ...state, abroadTerm: action.term };
+    case "patchAbroadFilters":
+      return { ...state, abroadFilters: { ...state.abroadFilters, ...action.patch } };
+    case "route":
+      return applyRoute(state, action.route);
     case "selectAbroad":
       return { ...state, abroadIso: action.iso, selectedId: null, emptyGeo: null };
     case "openProgram":

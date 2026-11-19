@@ -3,8 +3,10 @@ import { lookupPlace } from "../data";
 import { useAccount, useMe } from "../account/account";
 import { estimate } from "../budget";
 import { flightStatus, googleFlights, resolveDestination, GATEWAYS } from "../flights/engine";
-import { useOverlap } from "../live/plans";
-import { formatMoney, formatRange, parseISODate, scoreOf, seasonLabel, travelGuidance } from "../logic";
+import { useOverlap, usePlans } from "../live/plans";
+import { useReviewStore } from "../reviews/store";
+import { FEATURES, featureMatch, formatMoney, formatRange, parseISODate, ratingBand, scoreOf, seasonLabel, travelGuidance, visitCount } from "../logic";
+import type { Place } from "../types";
 import { useFriends, useTripTable } from "../store";
 import type { Trip, TripFlight } from "../types";
 import {
@@ -23,6 +25,8 @@ import {
   leavePlans,
 } from "./tripLogic";
 import { invites, sentStatus, useInvites } from "./invites";
+import { useTripNotes } from "./notes";
+import { gcal, useGcal } from "../calendar/gcal";
 import "./trip.css";
 
 export function countdownLabel(trip: Trip): string {
@@ -60,6 +64,13 @@ export function TripDetail({ trip }: { trip: Trip }) {
   const [note, setNote] = useState(trip.note);
   const [copied, setCopied] = useState(false);
   const overlap = useOverlap(trip.placeId, trip.start, trip.end);
+  const sharedNotes = useTripNotes(trip);
+  // Pick up a note saved on another device, unless you're in the middle of editing it.
+  const [savedNote, setSavedNote] = useState(trip.note);
+  if (savedNote !== trip.note) {
+    setSavedNote(trip.note);
+    if (note === savedNote) setNote(trip.note);
+  }
   useInvites();
   const sent = sentStatus(trip);
   if (!place) return null;
@@ -153,6 +164,7 @@ export function TripDetail({ trip }: { trip: Trip }) {
           {rating !== null ? <span className="fine">Rated {rating.toFixed(1)} by students</span> : null}
         </div>
       </header>
+      <PlaceSummary place={place} trip={trip} nights={nights} cost={cost.total} airport={dest.airport?.code ?? null} />
       {guidance.level !== "ok" ? (
         <p className={`guidance ${guidance.level}`}>
           <strong>{guidance.title}.</strong> {guidance.detail}
@@ -357,17 +369,41 @@ export function TripDetail({ trip }: { trip: Trip }) {
         {/* ---------- notes, cost, links ---------- */}
         <section className="td-card">
           <div className="td-card-head">
-            <h3>Notes</h3>
+            <h3>Trip notes</h3>
+            {note !== trip.note ? (
+              <button className="primary" type="button" onClick={() => update({ note }, "Note saved and shared")}>
+                Save note
+              </button>
+            ) : null}
           </div>
+          <label className="td-note-label fine" htmlFor="td-note">
+            {me.signedIn ? "Your note · friends on this trip see what you save" : "Your note · sign in to share it with friends on this trip"}
+          </label>
           <textarea
+            id="td-note"
             className="td-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            onBlur={() => note !== trip.note && update({ note }, "Notes saved")}
+            onBlur={() => note !== trip.note && update({ note }, "Note saved and shared")}
             rows={4}
             maxLength={2000}
             placeholder="Where you're staying, confirmation numbers, who's booking what"
           />
+          {sharedNotes.length ? (
+            <ul className="td-shared-notes" aria-label="Notes from friends on this trip">
+              {sharedNotes.map((n) => (
+                <li key={n.user_id}>
+                  <div className="td-shared-top">
+                    <strong>{friends.find((f) => f.netid === n.user_id)?.name ?? n.name}</strong>
+                    <span className="fine">{savedAgo(n.updated_at)}</span>
+                  </div>
+                  <p>{n.note}</p>
+                </li>
+              ))}
+            </ul>
+          ) : me.signedIn && trip.friendNetids.length ? (
+            <p className="fine">Notes your friends save on this trip show up here.</p>
+          ) : null}
           <div className="td-cost">
             <p className="field-label">Rough cost per person</p>
             <p>
@@ -400,8 +436,9 @@ export function TripDetail({ trip }: { trip: Trip }) {
       </div>
 
       <div className="td-footer">
+        <GoogleCalendarButton signedIn={me.signedIn} />
         <button className="textlink" type="button" onClick={() => downloadCalendar(trip)}>
-          Export to calendar
+          Download .ics
         </button>
         <button
           className="textlink danger"
@@ -415,6 +452,98 @@ export function TripDetail({ trip }: { trip: Trip }) {
       </div>
     </div>
   );
+}
+
+// 16x16 icons, drawn inline so they cost nothing to download.
+const ICON = {
+  star: "M8 1.3l2 4.2 4.6.6-3.4 3.2.9 4.6L8 11.7l-4.1 2.2.9-4.6L1.4 6.1 6 5.5z",
+  money: "M2 4h11a1 1 0 011 1v8a1 1 0 01-1 1H2a1 1 0 01-1-1V5a1 1 0 011-1zm9 5a1 1 0 100 2 1 1 0 000-2zM3 2h8v1.5H3z",
+  shield: "M8 1l6 2.2v4.3c0 3.6-2.6 6.3-6 7.5-3.4-1.2-6-3.9-6-7.5V3.2z",
+  view: "M1 13l4.5-7 3 4.5 2-3L15 13zM11.5 2.5a1.6 1.6 0 110 3.2 1.6 1.6 0 010-3.2z",
+  people: "M5.5 7a2.5 2.5 0 110-5 2.5 2.5 0 010 5zm5.5 0a2 2 0 110-4 2 2 0 010 4zM1 14c0-2.8 2-4.5 4.5-4.5S10 11.2 10 14zm10 0c0-1.5-.4-2.8-1.2-3.8.4-.1.8-.2 1.2-.2 2.2 0 4 1.6 4 4z",
+  plane: "M15 7.2v1.6l-6-1.3v3.7l2 1.4V14l-3-.9-3 .9v-1.4l2-1.4V7.5l-6 1.3V7.2l6-3V1.8a1 1 0 012 0v2.4z",
+  nights: "M10.5 1.5A6.5 6.5 0 1014.5 12 5.5 5.5 0 0110.5 1.5z",
+  check: "M6.2 11.6L2.6 8l1.2-1.2 2.4 2.4 6-6L13.4 4.4z",
+  alert: "M8 1l7 13H1zm-.8 4.5v4h1.6v-4zm0 5.2v1.6h1.6v-1.6z",
+  tag: "M1 2v5l7 7 6-6-7-7H2zm3 1.5a1 1 0 110 2 1 1 0 010-2z",
+};
+
+function Metric({ icon, value, label, tone }: { icon: keyof typeof ICON; value: string; label: string; tone?: string }) {
+  return (
+    <li className={`ps-item${tone ? ` ps-${tone}` : ""}`}>
+      <svg className="ps-icon" viewBox="0 0 16 16" aria-hidden="true">
+        <path d={ICON[icon]} />
+      </svg>
+      <span className="ps-text">
+        <b>{value}</b>
+        <small>{label}</small>
+      </span>
+    </li>
+  );
+}
+
+/** At-a-glance facts about the destination: student ratings, crowd, cost, travel and Yale rules. */
+function PlaceSummary({ place, trip, nights, cost, airport }: { place: Place; trip: Trip; nights: number; cost: number; airport: string | null }) {
+  useReviewStore();
+  usePlans();
+  const score = (key: "overall" | "affordability" | "safety" | "beauty") => scoreOf(place.id, key);
+  const rated = (v: number | null) => (v === null ? "—" : v.toFixed(1));
+  const tone = (v: number | null) => (v === null ? "none" : ratingBand(v));
+  const planning = visitCount(place, trip.season);
+  const guidance = travelGuidance(place.iso);
+  const features = FEATURES.filter((f) => featureMatch(place, f.id)).map((f) => f.label);
+  return (
+    <ul className="place-summary" aria-label={`${place.name} at a glance`}>
+      <Metric icon="star" value={rated(score("overall"))} label="Overall" tone={tone(score("overall"))} />
+      <Metric icon="money" value={rated(score("affordability"))} label="Affordability" tone={tone(score("affordability"))} />
+      <Metric icon="shield" value={rated(score("safety"))} label="Safety" tone={tone(score("safety"))} />
+      <Metric icon="view" value={rated(score("beauty"))} label="Beauty" tone={tone(score("beauty"))} />
+      <Metric icon="people" value={planning.toLocaleString("en-US")} label="Yalies planning" />
+      <Metric icon="nights" value={String(nights)} label={nights === 1 ? "night" : "nights"} />
+      <Metric icon="money" value={`≈ ${formatMoney(cost)}`} label="per person" />
+      <Metric icon="plane" value={airport ?? "No flight"} label={airport ? "nearest airport" : "drive, bus or train"} />
+      <Metric
+        icon={guidance.level === "ok" ? "check" : "alert"}
+        value={guidance.level === "ok" ? "Safe to travel" : guidance.level === "blocked" ? "Not sponsored" : "Partial ban"}
+        label="Yale travel rules"
+        tone={guidance.level === "ok" ? "great" : guidance.level === "blocked" ? "low" : "ok"}
+      />
+      {features.length ? <Metric icon="tag" value={features.slice(0, 3).join(" · ")} label="Known for" /> : null}
+    </ul>
+  );
+}
+
+/** Connect once, and every trip stays in your Google Calendar as you add, change or remove them. */
+function GoogleCalendarButton({ signedIn }: { signedIn: boolean }) {
+  const g = useGcal();
+  if (!signedIn) return <span className="fine">Sign in to sync trips to Google Calendar</span>;
+  if (g.connected) {
+    return (
+      <span className="td-gcal">
+        <span className="td-gcal-on">✓ Synced to Google Calendar</span>
+        <button className="textlink" type="button" disabled={g.busy} onClick={() => void gcal.disconnect()}>
+          Stop syncing
+        </button>
+      </span>
+    );
+  }
+  return (
+    <span className="td-gcal">
+      <button className="primary" type="button" disabled={g.busy || g.connected === null} onClick={() => void gcal.connect()}>
+        {g.busy ? "Connecting…" : "Add to Google Calendar"}
+      </button>
+      {g.error ? <span className="form-error">{g.error}</span> : null}
+    </span>
+  );
+}
+
+function savedAgo(iso: string): string {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.round(mins / 60);
+  if (h < 24) return `${h} hr ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function initials(name: string): string {

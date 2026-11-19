@@ -4,6 +4,7 @@
 
 import { parseISODate } from "../logic";
 import type { Place } from "../types";
+import { YALE_RECESSES } from "../yaleCalendar";
 
 export type GroundLeg = {
   id: string;
@@ -224,12 +225,15 @@ export function duration(mins: number): string {
 
 
 // ---------- Yale breaks (Yale College 2026–27; verify on the official calendar) ----------
-export const BREAKS = [
-  { id: "nov", label: "Thanksgiving", start: "2026-11-21", end: "2026-11-29", peaks: ["2026-11-21", "2026-11-25", "2026-11-29"] },
-  { id: "win", label: "Winter recess", start: "2026-12-22", end: "2027-01-18", peaks: ["2026-12-19", "2026-12-22", "2027-01-17"] },
-  { id: "spr", label: "Spring break", start: "2027-03-13", end: "2027-03-28", peaks: ["2027-03-13", "2027-03-28"] },
-  { id: "sum", label: "Summer", start: "2027-05-12", end: "2027-08-24", peaks: ["2027-05-12"] },
-];
+// Yale College recesses (see yaleCalendar.ts), with the days fares usually peak.
+const PEAKS: Record<string, string[]> = {
+  oct: ["2026-10-20", "2026-10-25"],
+  nov: ["2026-11-21", "2026-11-25", "2026-11-29"],
+  win: ["2026-12-19", "2026-12-23", "2027-01-17"],
+  spr: ["2027-03-05", "2027-03-06", "2027-03-21"],
+  sum: ["2027-05-13"],
+};
+export const BREAKS = YALE_RECESSES.map((r) => ({ id: r.id, label: r.label, start: r.leave, end: r.back, peaks: PEAKS[r.id] ?? [r.leave], note: r.note }));
 
 // ---------- destination resolution ----------
 export function resolveDestination(place: Place): Destination {

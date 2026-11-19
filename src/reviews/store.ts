@@ -180,21 +180,31 @@ async function refresh() {
   // Keep written reviews already loaded for open places; re-mark ownership.
   const others = snap.reviews.filter((r) => !mineIds.has(r.id) && r.userId !== me).map((r) => ({ ...r, userId: "" }));
   const byId = new Map([...others, ...mine].map((r) => [r.id, r]));
-  emit({ loading: false, error: null, summary, reviews: [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) });
+  const list = [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const same =
+    !snap.loading &&
+    !snap.error &&
+    JSON.stringify([...summary]) === JSON.stringify([...snap.summary]) &&
+    JSON.stringify(list) === JSON.stringify(snap.reviews);
+  if (same) return;
+  emit({ loading: false, error: null, summary, reviews: list });
 }
 
-/** Load (or load more of) one place's or program's written reviews, newest first. */
-async function loadTarget(type: TargetType, id: string, more = false) {
+/**
+ * Load (or load more of) written reviews, newest first: for one place or program, or for a country
+ * together with its cities and destinations (pass their ids as `also`).
+ */
+async function loadTarget(type: TargetType, id: string, more = false, also: string[] = []) {
   if (!supabase || useLocal) return;
-  const k = keyOf(type, id);
+  const group = also.length > 0;
+  const k = group ? `${keyOf(type, id)}+` : keyOf(type, id);
   const page = snap.pages.get(k);
   if (!more && page) return;
   const from = more && page ? page.loaded : 0;
-  const { data, error } = await supabase
-    .from("reviews")
-    .select(COLS)
-    .eq("target_type", type)
-    .eq("target_id", id)
+  const ids = [id, ...also];
+  let query = supabase.from("reviews").select(COLS).eq("target_type", type);
+  query = group ? query.in("target_id", ids) : query.eq("target_id", id);
+  const { data, error } = await query
     .neq("body", "")
     .order("created_at", { ascending: false })
     .range(from, from + PAGE - 1);
@@ -203,7 +213,7 @@ async function loadTarget(type: TargetType, id: string, more = false) {
   const list = rows.map((r) => fromRow(r, mineIds, snap.session?.userId ?? ""));
   const pages = new Map(snap.pages);
   pages.set(k, { loaded: from + rows.length, more: rows.length === PAGE });
-  emit({ pages, reviews: more ? merge(list) : merge(list, k) });
+  emit({ pages, reviews: more || group ? merge(list) : merge(list, k) });
 }
 
 function init() {
@@ -245,7 +255,7 @@ export type Draft = Omit<Review, "id" | "userId" | "createdAt">;
 export const reviews = {
   clearAuthError: () => emit({ authError: null }),
   refresh: () => refresh(),
-  loadTarget: (type: TargetType, id: string, more = false) => loadTarget(type, id, more),
+  loadTarget: (type: TargetType, id: string, more = false, also: string[] = []) => loadTarget(type, id, more, also),
   subscribe(fn: () => void) {
     listeners.add(fn);
     return () => {

@@ -22,11 +22,13 @@ import { isUpcoming } from "./profile/trips";
 import "./abroad/abroad.css";
 import { reviews as reviewApi, useReviewStore } from "./reviews/store";
 import { useAccount } from "./account/account";
+import { parseRoute, routeUrl } from "./router";
+import { PROGRAM_BY_ID } from "./abroad/data";
+import type { State } from "./store";
 
 const NAV: [ViewName, string][] = [
   ["map", "Map"],
   ["catalog", "Catalog"],
-  ["abroad", "Study Abroad"],
   ["friends", "Friends"],
   ["itinerary", "Itinerary"],
 ];
@@ -75,9 +77,11 @@ function Shell() {
   useTripSync();
   const panelOpen = abroadMap ? Boolean(state.abroadIso) : Boolean(selected || state.emptyGeo);
 
+  useRouteSync(state, dispatch);
+  const title = pageTitle(state);
   useEffect(() => {
-    document.title = `TripTable · ${seasonLabel(state.season)}`;
-  }, [state.season]);
+    document.title = title;
+  }, [title]);
 
   useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>("link[rel='icon']") ?? document.createElement("link");
@@ -149,6 +153,7 @@ function Shell() {
                 value={state.abroadTerm}
                 onChange={(event) => dispatch({ type: "setAbroadTerm", term: event.target.value as typeof state.abroadTerm })}
               >
+                <option value="All">All terms</option>
                 <option value="Fall">Fall semester</option>
                 <option value="Spring">Spring semester</option>
                 <option value="Summer">Summer</option>
@@ -180,20 +185,15 @@ function Shell() {
         ) : null}
         <nav className="nav">
           {NAV.map(([view, label]) => {
-            const active = view === "itinerary" ? tripsView : state.view === view;
+            const active = view === "itinerary" ? tripsView : view === "catalog" ? state.view === "catalog" || state.view === "abroad" : state.view === view;
             return (
               <button key={view} className={active ? "nav-btn active" : "nav-btn"} type="button" onClick={() => {
                 if (view === "itinerary") dispatch({ type: "openTrip", id: null });
+                // Catalog keeps whichever side (travel or study abroad) you were on.
+                if (view === "catalog" && (state.view === "catalog" || state.view === "abroad")) return;
                 dispatch({ type: "setView", view });
               }}>
-                {view === "abroad" ? (
-                  <>
-                    <span className="nav-long">Study Abroad</span>
-                    <span className="nav-short">Abroad</span>
-                  </>
-                ) : (
-                  label
-                )}
+                {label}
                 {view === "itinerary" && (upcomingCount || inviteCount) ? <span className={inviteCount ? "badge badge-alert" : "badge"}>{inviteCount || upcomingCount}</span> : null}
               </button>
             );
@@ -218,7 +218,7 @@ function Shell() {
             </div>
             {abroadMap ? (
               <div className="legend">
-                <div className="legend-title">Program rating · {state.abroadTerm === "Summer" ? "Summer" : `${state.abroadTerm} semester`}</div>
+                <div className="legend-title">Program rating · {state.abroadTerm === "All" ? "All terms" : state.abroadTerm === "Summer" ? "Summer" : `${state.abroadTerm} semester`}</div>
                 <div className="legend-scale">
                   <span>1</span>
                   <i className="legend-bar" />
@@ -257,9 +257,6 @@ function Shell() {
               <button className="filters-toggle" type="button" onClick={() => setRailOpen((open) => !open)}>
                 Filters
               </button>
-              <button type="button" onClick={() => dispatch({ type: "world" })}>
-                World
-              </button>
             </div>
             {abroadMap ? (
               state.abroadIso ? <AbroadMapPanel iso={state.abroadIso} /> : null
@@ -281,12 +278,13 @@ function Shell() {
                 Filters
               </button>
             </div>
+            <CatalogToggle />
             <CatalogView />
             {selected ? <PlacePanel place={selected} /> : null}
           </div>
         </div>
       ) : null}
-      {state.view === "abroad" ? <AbroadView /> : null}
+      {state.view === "abroad" ? <AbroadView toggle={<CatalogToggle />} /> : null}
       {state.view === "profile" ? <ProfileView /> : null}
       {state.view === "friends" ? <FriendsView /> : null}
       {tripsView ? <TripsShell /> : null}
@@ -300,6 +298,92 @@ function Shell() {
       ) : null}
     </div>
   );
+}
+
+/** Switches the catalog between travel places and study abroad programs. */
+function CatalogToggle() {
+  const { state, dispatch } = useTripTable();
+  const abroad = state.view === "abroad";
+  return (
+    <div className="catalog-bar">
+    <div className="seg catalog-toggle" role="tablist" aria-label="Catalog">
+      <button type="button" role="tab" aria-selected={!abroad} className={!abroad ? "active" : ""} onClick={() => dispatch({ type: "setView", view: "catalog" })}>
+        Travel
+      </button>
+      <button type="button" role="tab" aria-selected={abroad} className={abroad ? "active" : ""} onClick={() => dispatch({ type: "setView", view: "abroad" })}>
+        Study abroad
+      </button>
+    </div>
+    </div>
+  );
+}
+
+/** The browser tab title for the page you're on. */
+function pageTitle(state: State): string {
+  const place = (id: string | null | undefined) => (id ? lookupPlace(id)?.name : undefined);
+  let page: string;
+  switch (state.view) {
+    case "map":
+      page = state.mapMode === "abroad" ? "Study abroad map" : place(state.selectedId) ?? `Map · ${seasonLabel(state.season)}`;
+      break;
+    case "catalog":
+      page = "Travel catalog";
+      break;
+    case "abroad": {
+      const program = state.abroadProgramId ? PROGRAM_BY_ID.get(state.abroadProgramId) : undefined;
+      page = program ? `${program.name} · Study abroad` : "Study abroad catalog";
+      break;
+    }
+    case "friends":
+      page = "Friends";
+      break;
+    case "itinerary": {
+      const trip = state.openTripId ? state.trips.find((t) => t.id === state.openTripId) : undefined;
+      page = trip ? `${place(trip.placeId) ?? "Trip"} trip` : "Your trips";
+      break;
+    }
+    case "flights":
+      page = "Flights";
+      break;
+    case "transit":
+      page = "Buses & trains";
+      break;
+    case "profile":
+      page = "Profile";
+      break;
+    default:
+      page = "";
+  }
+  return page ? `${page} · TripTable` : "TripTable";
+}
+
+/** Keeps the address bar in step with the page, and the back and forward buttons in step with the app. */
+function useRouteSync(state: State, dispatch: (a: { type: "route"; route: NonNullable<ReturnType<typeof parseRoute>> }) => void) {
+  const url = routeUrl(state);
+  const first = useRef(true);
+  useEffect(() => {
+    const here = location.pathname + location.search;
+    if (url === here) {
+      first.current = false;
+      return;
+    }
+    try {
+      // The first fix-up replaces the entry (and keeps any sign-in #hash); later page changes add one.
+      if (first.current) history.replaceState(null, "", url + location.hash);
+      else history.pushState(null, "", url);
+    } catch {
+      /* ignore */
+    }
+    first.current = false;
+  }, [url]);
+  useEffect(() => {
+    const onPop = () => {
+      const route = parseRoute();
+      if (route) dispatch({ type: "route", route });
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [dispatch]);
 }
 
 /** Shows a failed sign-in once, and welcomes a new account the first time it signs in. */

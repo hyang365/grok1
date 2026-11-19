@@ -3,6 +3,7 @@ import { useReviewStore } from "../reviews/store";
 import { useTripTable } from "../store";
 import { syncTrips, type RemoteTrip } from "./plans";
 import { sanitizeFlight } from "../trip/tripLogic";
+import { gcal } from "../calendar/gcal";
 import type { Trip, TripFlight } from "../types";
 
 function toTrip(r: RemoteTrip): Trip {
@@ -35,6 +36,8 @@ export function useTripSync() {
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(async () => {
       const { added, changed } = await syncTrips(state.trips, userId);
+      // The database now has these trips: mirror them into Google Calendar if it's connected.
+      if (!added.length && !changed.length) gcal.queue(state.trips);
       if (added.length) dispatch({ type: "mergeTrips", trips: added.map(toTrip) });
       for (const r of changed) {
         const t = toTrip(r);
