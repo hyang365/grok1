@@ -1266,6 +1266,19 @@ for (const p of PLACES) {
 export const PLACE_BY_ID = new Map(PLACES.map((place) => [place.id, place]));
 export const COUNTRY_BY_ISO = new Map(PLACES.filter((place) => place.kind === "country").map((place) => [place.iso, place]));
 
+// Club retreats live in the user's saved state, not in the built-in catalog.
+const extraPlaces = new Map<string, Place>();
+
+export function syncExtraPlaces(places: Place[]): void {
+  extraPlaces.clear();
+  for (const place of places) extraPlaces.set(place.id, place);
+}
+
+export function lookupPlace(id: string | null | undefined): Place | undefined {
+  if (!id) return undefined;
+  return PLACE_BY_ID.get(id) ?? extraPlaces.get(id);
+}
+
 export function assertData(): void {
   const ids = new Set<string>();
   const isos = new Set<string>();
