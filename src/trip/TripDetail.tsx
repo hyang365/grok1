@@ -26,6 +26,7 @@ import {
 } from "./tripLogic";
 import { invites, sentStatus, useInvites } from "./invites";
 import { useTripNotes } from "./notes";
+import { HARVARD_ID } from "../fun/harvard";
 import { gcal, useGcal } from "../calendar/gcal";
 import "./trip.css";
 
@@ -503,10 +504,10 @@ function PlaceSummary({ place, trip, nights, cost, airport }: { place: Place; tr
       <Metric icon="money" value={`≈ ${formatMoney(cost)}`} label="per person" />
       <Metric icon="plane" value={airport ?? "No flight"} label={airport ? "nearest airport" : "drive, bus or train"} />
       <Metric
-        icon={guidance.level === "ok" ? "check" : "alert"}
-        value={guidance.level === "ok" ? "Safe to travel" : guidance.level === "blocked" ? "Not sponsored" : "Partial ban"}
+        icon={guidance.level === "ok" && place.id !== HARVARD_ID ? "check" : "alert"}
+        value={place.id === HARVARD_ID ? "Spiritually banned" : guidance.level === "ok" ? "Safe to travel" : guidance.level === "blocked" ? "Travel ban" : "Partial ban"}
         label="Yale travel rules"
-        tone={guidance.level === "ok" ? "great" : guidance.level === "blocked" ? "low" : "ok"}
+        tone={place.id === HARVARD_ID ? "low" : guidance.level === "ok" ? "great" : guidance.level === "blocked" ? "low" : "ok"}
       />
       {features.length ? <Metric icon="tag" value={features.slice(0, 3).join(" · ")} label="Known for" /> : null}
     </ul>

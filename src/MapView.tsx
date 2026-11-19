@@ -11,6 +11,7 @@ import { usePlans } from "./live/plans";
 import { summaryAvg, useReviewStore } from "./reviews/store";
 import { ABROAD_CITIES, offeredIn, programsIn } from "./abroad/data";
 import { matchesQuery, passesAbroad } from "./abroad/filters";
+import { HARVARD_ID } from "./fun/harvard";
 
 type PointDatum = {
   latitude: number;
@@ -21,16 +22,17 @@ type PointDatum = {
   fill: number;
   iso?: string;
   label?: string;
-  icon?: "city" | "park" | "landmark";
+  icon?: "city" | "park" | "landmark" | "nope";
 };
 
 // 12x12 icon paths drawn in white on a colored badge.
 const ICON_PATH: Record<NonNullable<PointDatum["icon"]>, string> = {
+  nope: "M2.2 1L6 4.8 9.8 1 11 2.2 7.2 6 11 9.8 9.8 11 6 7.2 2.2 11 1 9.8 4.8 6 1 2.2z",
   city: "M1 11V6h3v5zM5 11V1.5h3V11zM9 11V4h2.5v7z",
   park: "M6 0.5L10 6H8L11 10H7V11.8H5V10H1L4 6H2Z",
   landmark: "M6 0.4l1.7 3.6 3.9.5-2.9 2.7.8 3.9L6 9.2l-3.5 1.9.8-3.9L.4 4.5l3.9-.5z",
 };
-const ICON_FILL: Record<NonNullable<PointDatum["icon"]>, number> = { city: 0x0b3d91, park: 0x2f7d32, landmark: 0xd9822b };
+const ICON_FILL: Record<NonNullable<PointDatum["icon"]>, number> = { city: 0x0b3d91, park: 0x2f7d32, landmark: 0xd9822b, nope: 0xa51c30 };
 // Water is a quiet blue and unrated land is warm paper, so the coast reads without a neon sea.
 const SEA = { light: 0x7ea4c8, dark: 0x0b1824 };
 const LAND = { light: 0xf6f3ec, dark: 0x3c3a36 };
@@ -38,7 +40,7 @@ const LINE = { light: 0xd3c9bb, dark: 0x514e48 };
 const PROGRAM_LAND = { light: 0xd7e3f4, dark: 0x243044 };
 // Zoomed out, only these major tourism destinations get a dot.
 const MAJOR = new Set(
-  "nyc la sf miami nola chicago lasvegas dc honolulu grandcanyon yosemite orlando sanjuan cancun cdmx tulum rome florence venice amalfi paris nice barcelona madrid london edinburgh lisbon amsterdam berlin prague dubrovnik athens santorini istanbul reykjavik marrakech cairo tokyo kyoto seoul beijing shanghai greatwall bangkok phuket ubud hanoi sydney cartagena machupicchu toronto montreal vancouver banff nassau puntacana montegobay interlaken dublin lafortuna".split(" "),
+  "nyc la sf miami nola chicago lasvegas dc honolulu grandcanyon yosemite orlando sanjuan cancun cdmx tulum rome florence venice amalfi paris nice barcelona madrid london edinburgh lisbon amsterdam berlin prague dubrovnik athens santorini istanbul reykjavik marrakech cairo tokyo kyoto seoul beijing shanghai greatwall bangkok phuket ubud hanoi sydney cartagena machupicchu toronto montreal vancouver banff nassau puntacana montegobay interlaken dublin lafortuna harvard".split(" "),
 );
 
 // Labeled on the U.S. map (others show their name on hover so the Northeast stays readable).
@@ -219,6 +221,20 @@ export function MapView() {
       const iconed = detailed && (related || place.iso === "US");
       const count = visitCount(place, state.season);
       const scale = Math.sqrt(count / maxSpot);
+      if (place.id === HARVARD_ID) {
+        // Crimson, with an X. Rated −5.0, permanently.
+        spots.push({
+          latitude: place.lat,
+          longitude: place.lng,
+          placeId: place.id,
+          tooltip: "Harvard\nRated −5.0 on everything. Don't.",
+          radius: iconed ? (place.id === state.selectedId ? 10 : 7.5) : 4,
+          fill: ICON_FILL.nope,
+          icon: iconed ? "nope" : undefined,
+          label: usFocus ? "Harvard (ew)" : undefined,
+        });
+        continue;
+      }
       spots.push({
         latitude: place.lat,
         longitude: place.lng,

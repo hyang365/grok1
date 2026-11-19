@@ -35,6 +35,7 @@ function reviewCount(id: string): number {
 }
 import { seasonYear, useOverlap, usePlans } from "./live/plans";
 import { BucketButton } from "./profile/ProfileMenu";
+import { FIXED_SCORES, HARVARD_FACTS, HARVARD_ID } from "./fun/harvard";
 import { isPast, isUpcoming } from "./profile/trips";
 
 export function Rating({ value }: { value: number | null }) {
@@ -427,7 +428,13 @@ export function PlacePanel({ place }: { place: Place }) {
           </button>
         </div>
         {place.kind === "country" || !place.blurb ? null : <p className="blurb">{place.blurb}</p>}
-        <GuidanceNote iso={place.iso} />
+        {place.id === HARVARD_ID ? (
+          <p className="guidance blocked">
+            <strong>Spiritually on Yale's travel ban list.</strong> Not an official Yale advisory. It just should be. Go if you must, and leave before dark.
+          </p>
+        ) : (
+          <GuidanceNote iso={place.iso} />
+        )}
         <PlanCard place={place} />
         <BucketButton kind="place" targetId={place.id} label={place.name} />
         <p className="fine">{continentsOf(place).join(" and ")}</p>
@@ -455,7 +462,9 @@ export function PlacePanel({ place }: { place: Place }) {
           ))}
         </div>
         <p className="fine score-basis">
-          {ratingCount(place.id)
+          {place.id in FIXED_SCORES
+            ? "Permanently −5.0 on everything. Set by TripTable, not by student reviews, and it isn't changing."
+            : ratingCount(place.id)
             ? `Based on ${ratingCount(place.id)} ${ratingCount(place.id) === 1 ? "rating" : "ratings"}${children.length ? ` of ${place.name} and its cities and destinations` : ""}.`
             : children.length
               ? `No reviews yet. Reviews of ${place.name} and its cities and destinations all count toward this rating.`
@@ -540,14 +549,24 @@ export function PlacePanel({ place }: { place: Place }) {
             </button>
           ))}
         </div>
-        {tab === "evals" ? (
+        {tab === "evals" && place.id === HARVARD_ID ? (
+          <div className="harvard-closed">
+            <strong>Reviews are closed.</strong>
+            <ul>
+              {HARVARD_FACTS.map((fact) => (
+                <li key={fact}>{fact}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {tab === "evals" && place.id !== HARVARD_ID ? (
           <ReviewSection
             targetType="place"
             targetId={place.id}
             keys={PLACE_KEYS}
             terms={SEASONS.map((item) => item.label)}
             prompt="Where you stayed, what it cost, how safe it felt, what you'd tell a friend going next"
-            include={place.kind === "country" ? children.map((c) => c.id) : []}
+            include={place.kind === "country" ? children.filter((c) => !(c.id in FIXED_SCORES)).map((c) => c.id) : []}
             nameOf={(id) => lookupPlace(id)?.name ?? id}
           />
         ) : null}
@@ -751,7 +770,7 @@ export function CatalogView() {
         <td className="num">
           <Rating value={scoreOf(place.id, "beauty")} />
         </td>
-        <td>{guidance.level === "blocked" ? "Travel ban" : guidance.level === "regional" ? "Partial ban" : "Safe to travel"}</td>
+        <td>{place.id === HARVARD_ID ? "Spiritually banned" : guidance.level === "blocked" ? "Travel ban" : guidance.level === "regional" ? "Partial ban" : "Safe to travel"}</td>
         <td>
           <button
             className="plus"

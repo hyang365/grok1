@@ -2,6 +2,7 @@ import { summaryAvg, summaryCount } from "./reviews/store";
 import { planCount, seasonYear } from "./live/plans";
 import { PLACES } from "./data";
 import { CONTINENT_BY_ISO } from "./morePlaces";
+import { FIXED_SCORES } from "./fun/harvard";
 import { YALE_RECESSES, recessWindow } from "./yaleCalendar";
 import type { Filters, Person, PersonTrip, Place, Season, Trip } from "./types";
 
@@ -32,7 +33,8 @@ export function visitCount(place: Place, season: Season, year = seasonYear(seaso
 
 const CHILDREN = new Map<string, string[]>();
 for (const p of PLACES) {
-  if (p.parentId) CHILDREN.set(p.parentId, [...(CHILDREN.get(p.parentId) ?? []), p.id]);
+  // Hand-set joke scores (Harvard) never count toward their country.
+  if (p.parentId && !(p.id in FIXED_SCORES)) CHILDREN.set(p.parentId, [...(CHILDREN.get(p.parentId) ?? []), p.id]);
 }
 
 /** Default dates for a season: Yale's break calendar, rolled to the next occurrence. */
@@ -327,6 +329,7 @@ export type ScoreKey = "overall" | "affordability" | "safety" | "beauty";
  * cities and destinations. A city's rating uses only that city's reviews.
  */
 export function scoreOf(placeId: string, key: ScoreKey): number | null {
+  if (placeId in FIXED_SCORES) return FIXED_SCORES[placeId];
   return summaryAvg("place", [placeId, ...(CHILDREN.get(placeId) ?? [])], key);
 }
 

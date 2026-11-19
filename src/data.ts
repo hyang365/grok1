@@ -1,5 +1,6 @@
 import type { Place, Stay } from "./types";
 import { extraCatalog } from "./morePlaces";
+import { HARVARD } from "./fun/harvard";
 import { SPOT_ROWS } from "./spots";
 
 
@@ -1268,6 +1269,7 @@ for (const extra of extraCatalog()) {
   if (PLACES.some((place) => place.id === extra.id)) continue;
   PLACES.push(extra);
 }
+PLACES.push(HARVARD);
 
 export const PLACE_BY_ID = new Map(PLACES.map((place) => [place.id, place]));
 export const COUNTRY_BY_ISO = new Map(PLACES.filter((place) => place.kind === "country").map((place) => [place.iso, place]));

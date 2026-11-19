@@ -23,6 +23,7 @@ import "./abroad/abroad.css";
 import { reviews as reviewApi, useReviewStore } from "./reviews/store";
 import { useAccount } from "./account/account";
 import { parseRoute, routeUrl } from "./router";
+import { Confetti, GameBanner } from "./fun/Fun";
 import { PROGRAM_BY_ID } from "./abroad/data";
 import type { State } from "./store";
 
@@ -68,6 +69,9 @@ function Shell() {
   const [railOpen, setRailOpen] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  // Click the logo five times quickly: Boola boola.
+  const logoClicks = useRef<number[]>([]);
+  const [boola, setBoola] = useState(0);
   const selected = state.selectedId ? (lookupPlace(state.selectedId) ?? null) : null;
   const abroadMap = state.mapMode === "abroad";
   const placesView = state.view === "map" || state.view === "catalog";
@@ -111,7 +115,20 @@ function Shell() {
   return (
     <div className="app">
       <header className="topbar">
-        <button className="brand" type="button" onClick={() => dispatch({ type: "world" })}>
+        <button
+          className="brand"
+          type="button"
+          onClick={() => {
+            dispatch({ type: "world" });
+            const now = Date.now();
+            logoClicks.current = [...logoClicks.current.filter((t) => now - t < 2000), now];
+            if (logoClicks.current.length >= 5) {
+              logoClicks.current = [];
+              setBoola((n) => n + 1);
+              dispatch({ type: "toast", message: "Boola boola! 🐶" });
+            }
+          }}
+        >
           <img className="brand-mark" src={LOGO} alt="" />
           <span className="brand-name">triptable</span>
         </button>
@@ -136,6 +153,7 @@ function Shell() {
             const first = rows.find((row) => row.place.name.toLowerCase() === q) ?? rows.find((row) => row.place.name.toLowerCase().startsWith(q)) ?? rows[0];
             if (!first) return;
             dispatch({ type: "select", id: first.place.id });
+            if (q.includes("harvard")) dispatch({ type: "toast", message: "Did you mean: Yale?" });
             setRailOpen(false);
           }}
         />
@@ -201,6 +219,7 @@ function Shell() {
         </nav>
         <ProfileMenu />
       </header>
+      <GameBanner />
 
       {state.view === "map" ? (
         <div className="workspace">
@@ -289,6 +308,7 @@ function Shell() {
       {state.view === "friends" ? <FriendsView /> : null}
       {tripsView ? <TripsShell /> : null}
       {budgetOpen ? <BudgetFinder onClose={() => setBudgetOpen(false)} /> : null}
+      <Confetti burst={boola} />
       <AuthBanner />
       <JoinTrip />
       {state.toast ? (

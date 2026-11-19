@@ -6,6 +6,7 @@ import { useFriends, useTripTable } from "../store";
 import type { Place, Season, Trip } from "../types";
 import { leaveByLine, countdownLabel } from "./TripDetail";
 import { invites } from "./invites";
+import { HARVARD_ID } from "../fun/harvard";
 import "./trip.css";
 
 const BREAK_SEASON: Record<string, Season> = { oct: "fall", nov: "fall", win: "winter", spr: "spring", sum: "summer" };
@@ -101,7 +102,7 @@ function PlanForm({ place, existing, expanded, onExpand, onDone, friends, state,
     const newlyAdded = withIds.filter((x) => !(existing?.friendNetids ?? []).includes(x));
     dispatch({
       type: "saveTrip",
-      message: existing ? "Trip updated" : newlyAdded.length ? `${place.name} added. Invites sent to ${newlyAdded.length} ${newlyAdded.length === 1 ? "friend" : "friends"}.` : `${place.name} added to your itinerary`,
+      message: place.id === HARVARD_ID && !existing ? "Harvard added to your itinerary. Bold choice. Pack a Yale scarf." : existing ? "Trip updated" : newlyAdded.length ? `${place.name} added. Invites sent to ${newlyAdded.length} ${newlyAdded.length === 1 ? "friend" : "friends"}.` : `${place.name} added to your itinerary`,
       trip,
     });
     if (newlyAdded.length) void invites.send(trip, newlyAdded);
@@ -112,8 +113,10 @@ function PlanForm({ place, existing, expanded, onExpand, onDone, friends, state,
     return (
       <section className="pc pc-cta">
         <div>
-          <h3>Plan a trip to {place.name}</h3>
-          <p className="fine">Pick dates and friends, then add flights for a "leave campus by" time.</p>
+          <h3>Plan a trip to {place.name}{place.id === HARVARD_ID ? " (why?)" : ""}</h3>
+          <p className="fine">
+            {place.id === HARVARD_ID ? "Pick dates and friends, then reconsider. Then reconsider again." : 'Pick dates and friends, then add flights for a "leave campus by" time.'}
+          </p>
         </div>
         <button className="primary pc-go" type="button" onClick={onExpand}>
           Plan a trip
