@@ -5,6 +5,7 @@ import { defaultWindow, formatMoney, formatRange, parseISODate, SEASONS, seasonL
 import { useFriends, useTripTable } from "../store";
 import type { Place, Season, Trip } from "../types";
 import { leaveByLine, countdownLabel } from "./TripDetail";
+import { invites } from "./invites";
 import "./trip.css";
 
 const BREAK_SEASON: Record<string, Season> = { nov: "fall", win: "winter", spr: "spring", sum: "summer" };
@@ -96,11 +97,14 @@ function PlanForm({ place, existing, expanded, onExpand, onDone, friends, state,
   function save() {
     if (invalid) return;
     const id = existing?.id ?? `trip-${place.id}-${win[0]}`;
+    const trip = { ...(existing ?? { note: "", flights: [], checklist: [] }), id, placeId: place.id, season, start: win[0], end: win[1], friendNetids: withIds } as Trip;
+    const newlyAdded = withIds.filter((x) => !(existing?.friendNetids ?? []).includes(x));
     dispatch({
       type: "saveTrip",
-      message: existing ? "Trip updated" : `${place.name} added to your itinerary`,
-      trip: { ...(existing ?? { note: "", flights: [], checklist: [] }), id, placeId: place.id, season, start: win[0], end: win[1], friendNetids: withIds } as Trip,
+      message: existing ? "Trip updated" : newlyAdded.length ? `${place.name} added. Invites sent to ${newlyAdded.length} ${newlyAdded.length === 1 ? "friend" : "friends"}.` : `${place.name} added to your itinerary`,
+      trip,
     });
+    if (newlyAdded.length) void invites.send(trip, newlyAdded);
     onDone();
   }
 

@@ -22,6 +22,7 @@ import {
   isDomestic,
   leavePlans,
 } from "./tripLogic";
+import { invites, sentStatus, useInvites } from "./invites";
 import "./trip.css";
 
 export function countdownLabel(trip: Trip): string {
@@ -59,6 +60,8 @@ export function TripDetail({ trip }: { trip: Trip }) {
   const [note, setNote] = useState(trip.note);
   const [copied, setCopied] = useState(false);
   const overlap = useOverlap(trip.placeId, trip.start, trip.end);
+  useInvites();
+  const sent = sentStatus(trip);
   if (!place) return null;
 
   const intl = !isDomestic(trip);
@@ -239,8 +242,23 @@ export function TripDetail({ trip }: { trip: Trip }) {
                 <span className="td-avatar">{person ? initials(person.name) : "?"}</span>
                 <span>
                   <strong>{person?.name ?? "Not on your friends list"}</strong>
-                  {person?.college ? <small>{person.college}</small> : null}
+                  <small>
+                    {sent.get(id)?.status === "accepted"
+                      ? "Joined the trip"
+                      : sent.get(id)?.status === "declined"
+                        ? "Can't make it"
+                        : sent.get(id)
+                          ? "Invited, waiting to hear back"
+                          : me.signedIn && person
+                            ? "Not invited yet"
+                            : person?.college ?? ""}
+                  </small>
                 </span>
+                {me.signedIn && person && (!sent.get(id) || sent.get(id)?.status === "declined") ? (
+                  <button className="textlink td-mini" type="button" onClick={() => void invites.send(trip, [id]).then((n) => n && dispatch({ type: "toast", message: `Invite sent to ${person.name}` }))}>
+                    {sent.get(id) ? "Ask again" : "Send invite"}
+                  </button>
+                ) : null}
                 <button className="icon-btn" type="button" aria-label={`Remove ${person?.name ?? "person"} from this trip`} onClick={() => update({ friendNetids: trip.friendNetids.filter((x) => x !== id) })}>
                   ×
                 </button>
@@ -255,7 +273,9 @@ export function TripDetail({ trip }: { trip: Trip }) {
                 onChange={(e) => {
                   if (!e.target.value) return;
                   const who = friends.find((f) => f.netid === e.target.value);
-                  update({ friendNetids: [...trip.friendNetids, e.target.value] }, `${who?.name ?? "Friend"} added to the trip`);
+                  const id = e.target.value;
+                  update({ friendNetids: [...trip.friendNetids, id] }, `${who?.name ?? "Friend"} added and invited`);
+                  void invites.send(trip, [id]);
                 }}
               >
                 <option value="">Choose…</option>
@@ -270,7 +290,14 @@ export function TripDetail({ trip }: { trip: Trip }) {
           {alsoGoing.length ? (
             <p className="td-also">
               Also there these dates: {alsoGoing.map((f) => f.name).join(", ")}.{" "}
-              <button className="textlink" type="button" onClick={() => update({ friendNetids: [...trip.friendNetids, ...alsoGoing.map((f) => f.netid)] }, "Added to the trip")}>
+              <button
+                className="textlink"
+                type="button"
+                onClick={() => {
+                  update({ friendNetids: [...trip.friendNetids, ...alsoGoing.map((f) => f.netid)] }, "Added and invited");
+                  void invites.send(trip, alsoGoing.map((f) => f.netid));
+                }}
+              >
                 Add them
               </button>
             </p>
@@ -280,7 +307,7 @@ export function TripDetail({ trip }: { trip: Trip }) {
               {copied ? "Invite link copied ✓" : "Invite friends with a link"}
             </button>
             <p className="fine">
-              Anyone at Yale with the link can add this trip{trip.flights?.length ? " and your flights" : ""} to their itinerary
+              Friends you add above get an invite in their Itinerary. For anyone else, send this link: anyone at Yale with it can add this trip{trip.flights?.length ? " and your flights" : ""} to their itinerary
               {me.signedIn ? ", and you'll get a friend request from them" : ". Sign in so they can add you as a friend"}.
             </p>
           </div>

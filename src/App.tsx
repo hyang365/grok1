@@ -16,6 +16,7 @@ import { TransitView } from "./transit/TransitView";
 import { ProfileMenu } from "./profile/ProfileMenu";
 import { BudgetFinder } from "./budget/BudgetFinder";
 import { JoinTrip } from "./trip/JoinTrip";
+import { useInvites } from "./trip/invites";
 import { ProfileView } from "./profile/ProfileView";
 import { isUpcoming } from "./profile/trips";
 import "./abroad/abroad.css";
@@ -71,6 +72,7 @@ function Shell() {
   const placesView = state.view === "map" || state.view === "catalog";
   const tripsView = state.view === "itinerary" || state.view === "flights" || state.view === "transit";
   const upcomingCount = state.trips.filter(isUpcoming).length;
+  const inviteCount = useInvites().incoming.length;
   useTripSync();
   const panelOpen = abroadMap ? Boolean(state.abroadIso) : Boolean(selected || state.emptyGeo || state.draftPin);
 
@@ -200,7 +202,7 @@ function Shell() {
                 ) : (
                   label
                 )}
-                {view === "itinerary" && upcomingCount ? <span className="badge">{upcomingCount}</span> : null}
+                {view === "itinerary" && (upcomingCount || inviteCount) ? <span className={inviteCount ? "badge badge-alert" : "badge"}>{inviteCount || upcomingCount}</span> : null}
               </button>
             );
           })}

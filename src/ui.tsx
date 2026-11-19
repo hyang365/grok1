@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { PlanCard } from "./trip/PlanCard";
 import { TripDetail, countdownLabel, leaveByLine } from "./trip/TripDetail";
 import { checklistFor } from "./trip/tripLogic";
+import { invites, tripFromInvite, useInvites } from "./trip/invites";
 import { lookupPlace, PLACES } from "./data";
 import { account, displayName, useAccount, useMe } from "./account/account";
 import { SignInBox } from "./reviews/ReviewSection";
@@ -1123,64 +1124,160 @@ export function ItineraryView() {
   const upcoming = state.trips.filter(isUpcoming).sort((a, b) => a.start.localeCompare(b.start));
   const pastCount = state.trips.filter(isPast).length;
   return (
-    <div className="itinerary">
-      <header>
-        <div>
-          <h2>Upcoming trips</h2>
-          <p>Open a trip to add flights, see when to leave campus, and invite friends.</p>
-        </div>
-      </header>
-      {upcoming.length === 0 ? (
-        <div className="empty-card">
-          <p>No upcoming trips yet. Pick a place on the map and press "Plan a trip".</p>
-          <div className="plan-actions">
-            <button className="primary" type="button" onClick={() => dispatch({ type: "setView", view: "map" })}>
-              Find a place on the map
-            </button>
+    <div className="itinerary itin-layout">
+      <div className="itin-main">
+        <header>
+          <div>
+            <h2>Upcoming trips</h2>
+            <p>Open a trip to add flights, see when to leave campus, and invite friends.</p>
           </div>
-        </div>
-      ) : null}
-      <ul className="cards">
-        {upcoming.map((trip) => {
-          const place = lookupPlace(trip.placeId);
-          if (!place) return null;
-          const names = trip.friendNetids
-            .map((id) => friends.find((person) => person.netid === id)?.name)
-            .filter((name): name is string => Boolean(name));
-          const checks = checklistFor(trip);
-          const done = (trip.checklist ?? []).filter((id) => checks.some((c) => c.id === id)).length;
-          const leave = leaveByLine(trip);
-          return (
-            <li key={trip.id} className="card trip-card">
-              <button type="button" className="trip-card-btn" onClick={() => dispatch({ type: "openTrip", id: trip.id })}>
-                <div className="card-top">
-                  <div>
-                    <p className="kicker">
-                      {seasonLabel(trip.season)} · {countdownLabel(trip)}
-                    </p>
-                    <h3>{place.name}</h3>
-                    <p>{formatRange(trip.start, trip.end)}</p>
-                  </div>
-                  <Rating value={scoreOf(place.id, "overall")} />
-                </div>
-                <p className="fine">{names.length ? `With ${names.join(", ")}` : "Just you so far"}</p>
-                <p className={leave ? "trip-card-leave" : "fine"}>{leave ?? "No flights added yet"}</p>
-                <div className="trip-card-foot">
-                  <span className="fine">
-                    Checklist {done}/{checks.length}
-                  </span>
-                  <span className="trip-card-open">Open trip →</span>
-                </div>
+        </header>
+        {upcoming.length === 0 ? (
+          <div className="empty-card">
+            <p>No upcoming trips yet. Pick a place on the map and press "Plan a trip".</p>
+            <div className="plan-actions">
+              <button className="primary" type="button" onClick={() => dispatch({ type: "setView", view: "map" })}>
+                Find a place on the map
               </button>
-            </li>
-          );
-        })}
-      </ul>
-      {pastCount ? (
-        <button type="button" className="textlink" onClick={() => dispatch({ type: "openProfile", tab: "history" })}>
-          {pastCount} past {pastCount === 1 ? "trip" : "trips"} in your trip history →
-        </button>
-      ) : null}
+            </div>
+          </div>
+        ) : null}
+        <ul className="cards">
+          {upcoming.map((trip) => {
+            const place = lookupPlace(trip.placeId);
+            if (!place) return null;
+            const names = trip.friendNetids
+              .map((id) => friends.find((person) => person.netid === id)?.name)
+              .filter((name): name is string => Boolean(name));
+            const checks = checklistFor(trip);
+            const done = (trip.checklist ?? []).filter((id) => checks.some((c) => c.id === id)).length;
+            const leave = leaveByLine(trip);
+            return (
+              <li key={trip.id} className="card trip-card">
+                <button type="button" className="trip-card-btn" onClick={() => dispatch({ type: "openTrip", id: trip.id })}>
+                  <div className="card-top">
+                    <div>
+                      <p className="kicker">
+                        {seasonLabel(trip.season)} · {countdownLabel(trip)}
+                      </p>
+                      <h3>{place.name}</h3>
+                      <p>{formatRange(trip.start, trip.end)}</p>
+                    </div>
+                    <Rating value={scoreOf(place.id, "overall")} />
+                  </div>
+                  <p className="fine">{names.length ? `With ${names.join(", ")}` : "Just you so far"}</p>
+                  <p className={leave ? "trip-card-leave" : "fine"}>{leave ?? "No flights added yet"}</p>
+                  <div className="trip-card-foot">
+                    <span className="fine">
+                      Checklist {done}/{checks.length}
+                    </span>
+                    <span className="trip-card-open">Open trip →</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className="trip-card-delete"
+                  aria-label={`Delete ${place.name} trip`}
+                  title="Delete trip"
+                  onClick={() => {
+                    if (window.confirm(`Delete your ${place.name} trip (${formatRange(trip.start, trip.end)})? Its flights, notes and checklist go with it.`)) {
+                      dispatch({ type: "removeTrip", id: trip.id });
+                    }
+                  }}
+                >
+                  <TrashIcon />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {pastCount ? (
+          <button type="button" className="textlink" onClick={() => dispatch({ type: "openProfile", tab: "history" })}>
+            {pastCount} past {pastCount === 1 ? "trip" : "trips"} in your trip history →
+          </button>
+        ) : null}
+      </div>
+      <InvitesSidebar />
     </div>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+function InvitesSidebar() {
+  const { state, dispatch } = useTripTable();
+  const me = useMe();
+  const { incoming } = useInvites();
+  const [busy, setBusy] = useState<string | null>(null);
+  return (
+    <aside className="itin-side" aria-label="Trip invites">
+      <div className="itin-side-head">
+        <h3>Trip invites</h3>
+        {incoming.length ? <span className="inside-count">{incoming.length}</span> : null}
+      </div>
+      {!me.signedIn ? (
+        <p className="fine">Sign in to get trip invites from friends.</p>
+      ) : incoming.length === 0 ? (
+        <p className="fine">When a friend adds you to their trip, it shows up here so you can join or pass.</p>
+      ) : (
+        <ul className="itin-invites">
+          {incoming.map((inv) => {
+            const place = lookupPlace(inv.place_id);
+            if (!place) return null;
+            const existing = state.trips.find((t) => t.placeId === inv.place_id && t.start === inv.start_date);
+            const flights = (Array.isArray(inv.flights) ? inv.flights : []).length;
+            return (
+              <li key={inv.id} className="itin-invite">
+                <p className="kicker">{inv.fromName} invited you</p>
+                <strong>{place.name}</strong>
+                <span className="fine">
+                  {formatRange(inv.start_date, inv.end_date)}
+                  {flights ? ` · ${flights} ${flights === 1 ? "flight" : "flights"} shared` : ""}
+                </span>
+                {existing ? <span className="fine">You already have this trip; joining adds {inv.fromName.split(" ")[0]} to it.</span> : null}
+                <div className="plan-actions">
+                  <button
+                    className="primary"
+                    type="button"
+                    disabled={busy === inv.id}
+                    onClick={async () => {
+                      setBusy(inv.id);
+                      const trip = tripFromInvite(inv, existing);
+                      dispatch({ type: "saveTrip", trip, message: `You're in! ${place.name} is on your itinerary.` });
+                      await invites.answer(inv.id, "accepted");
+                      setBusy(null);
+                    }}
+                  >
+                    Join trip
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    disabled={busy === inv.id}
+                    onClick={async () => {
+                      setBusy(inv.id);
+                      await invites.answer(inv.id, "declined");
+                      dispatch({ type: "toast", message: `Declined. ${inv.fromName.split(" ")[0]} will see you can't make it.` });
+                      setBusy(null);
+                    }}
+                  >
+                    Decline
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </aside>
   );
 }

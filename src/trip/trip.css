@@ -118,3 +118,33 @@
   .pc-dates label:last-child { grid-column: 1 / -1; }
   .td-options th:nth-child(3), .td-options td:nth-child(3) { display: none; }
 }
+
+/* ---------- Itinerary: delete button and invites sidebar ---------- */
+.itin-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; max-width: 1120px; align-items: start; }
+.itin-main { min-width: 0; }
+.trip-card { position: relative; }
+.trip-card-delete { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--color-text-tertiary); cursor: pointer; }
+.trip-card-delete:hover, .trip-card-delete:focus-visible { color: #b42318; background: #fef3f2; border-color: #fecdca; }
+.trip-card .card-top { padding-right: 36px; }
+.itin-side { position: sticky; top: 16px; border: 1px solid var(--color-border); border-radius: 14px; padding: 14px; background: var(--color-surface); display: grid; gap: 10px; margin-top: 8px; }
+.itin-side-head { display: flex; align-items: center; gap: 8px; }
+.itin-side-head h3 { margin: 0; font-size: 16px; }
+.itin-side .fine { margin: 0; }
+.itin-invites { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.itin-invite { border: 1px solid var(--color-primary-subdued); background: var(--color-primary-subdued-2); border-radius: 12px; padding: 12px; display: grid; gap: 4px; }
+.itin-invite .kicker { margin: 0; }
+.itin-invite strong { font-size: 16px; }
+.itin-invite .plan-actions { margin-top: 6px; }
+.td-mini { padding: 0; font-size: 12px; white-space: nowrap; }
+.badge-alert { background: #d92d20 !important; color: #fff !important; }
+@media (max-width: 900px) {
+  .itin-layout { grid-template-columns: 1fr; }
+  .itin-side { position: static; order: -1; margin-top: 0; }
+}
+.itinerary.itin-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; max-width: 1120px; align-items: start; }
+.itin-side { width: 100%; box-sizing: border-box; }
+.ghost-btn { border: 1px solid var(--color-border-control); background: var(--color-surface); color: var(--color-text); border-radius: 8px; padding: 7px 14px; font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
+.ghost-btn:hover { background: var(--color-surface-hover); }
+@media (max-width: 900px) {
+  .itinerary.itin-layout { grid-template-columns: 1fr; }
+}

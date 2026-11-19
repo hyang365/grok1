@@ -64,3 +64,7 @@ alter table public.profiles add constraint profiles_avatar_url_check
 -- admin_reports() / admin_remove_review() / admin_dismiss_reports(), and the feedback
 -- table (anyone can send; only admins can read or resolve; rate-limited).
 -- To add a moderator: insert into private.admins (email) values ('netid@yale.edu');
+
+-- Migration "trip_invites": invites between accepted friends. Only the sender can create (as pending),
+-- only the recipient can accept/decline, outsiders can't see them; rate-limited to 40/hour.
+-- Migration "trip_details": trips.details jsonb (flights, people, notes, checklist), max 16 KB.
