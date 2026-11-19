@@ -2,7 +2,10 @@
 // can't call directly (no CORS). Decodes GTFS-realtime protobuf to JSON.
 // Deploy: supabase functions deploy transit --no-verify-jwt
 //
-//   GET /functions/v1/transit?feed=ct-trips | ct-vehicles | mnr | amtrak-station | amtrak-train&id=171-18
+//   GET /functions/v1/transit?feed=ct-trips&stops=… | ct-vehicles | mnr | amtrak-station | amtrak-train&id=171-18
+//
+// To keep downloads small, ct-vehicles only returns buses near Yale, and ct-trips only returns
+// arrivals at the stops the site asked for (the stops around campus).
 
 import GtfsRealtimeBindings from "npm:gtfs-realtime-bindings@1.1.1";
 
@@ -20,6 +23,7 @@ const CORS = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
 };
 
+const CAMPUS = { lat: 41.3083, lng: -72.9279 };
 const cache = new Map<string, { at: number; body: string }>();
 const TTL_MS = 20_000;
 
@@ -27,15 +31,33 @@ function json(body: string, status = 200) {
   return new Response(body, { status, headers: { ...CORS, "Content-Type": "application/json", "Cache-Control": "public, max-age=15" } });
 }
 
-async function load(feed: string, id: string | null): Promise<string> {
+type Entity = {
+  tripUpdate?: { stopTimeUpdate?: { stopId?: string }[] };
+  vehicle?: { position?: { latitude?: number; longitude?: number } };
+};
+
+async function load(feed: string, id: string | null, stops: Set<string> | null): Promise<string> {
   if (feed in PB) {
     const res = await fetch(PB[feed]);
     if (!res.ok) throw new Error(`${feed} upstream ${res.status}`);
     const msg = FeedMessage.decode(new Uint8Array(await res.arrayBuffer()));
-    const obj = FeedMessage.toObject(msg, { longs: Number }) as { entity?: { tripUpdate?: { stopTimeUpdate?: { stopId?: string }[] } }[] };
+    const obj = FeedMessage.toObject(msg, { longs: Number }) as { header?: unknown; entity?: Entity[] };
     if (feed === "mnr" && obj.entity) {
       // Only trains that call at New Haven (149) or State Street (151).
       obj.entity = obj.entity.filter((e) => e.tripUpdate?.stopTimeUpdate?.some((s) => s.stopId === "149" || s.stopId === "151"));
+    }
+    if (feed === "ct-vehicles" && obj.entity) {
+      // Only buses within ~8 km of campus.
+      obj.entity = obj.entity.filter((e) => {
+        const p = e.vehicle?.position;
+        return p && Math.abs((p.latitude ?? 0) - CAMPUS.lat) < 0.08 && Math.abs((p.longitude ?? 0) - CAMPUS.lng) < 0.1;
+      });
+    }
+    if (feed === "ct-trips" && obj.entity && stops) {
+      // Only arrivals at the stops the site shows, trimmed to just those stops.
+      obj.entity = obj.entity
+        .map((e) => (e.tripUpdate ? { ...e, tripUpdate: { ...e.tripUpdate, stopTimeUpdate: (e.tripUpdate.stopTimeUpdate ?? []).filter((s) => s.stopId && stops.has(s.stopId)) } } : e))
+        .filter((e) => (e.tripUpdate?.stopTimeUpdate?.length ?? 0) > 0);
     }
     return JSON.stringify(obj);
   }
@@ -57,11 +79,14 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const feed = url.searchParams.get("feed") ?? "";
   const id = url.searchParams.get("id");
-  const key = `${feed}:${id ?? ""}`;
+  const stopParam = (url.searchParams.get("stops") ?? "").slice(0, 4000);
+  const stopList = stopParam.split(",").filter((s) => /^[0-9A-Za-z_-]{1,20}$/.test(s));
+  const stops = stopList.length ? new Set(stopList) : null;
+  const key = `${feed}:${id ?? ""}:${stopList.sort().join(",")}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return json(hit.body);
   try {
-    const body = await load(feed, id);
+    const body = await load(feed, id, stops);
     cache.set(key, { at: Date.now(), body });
     return json(body);
   } catch (e) {

@@ -1,10 +1,10 @@
-import { averageOf, reviewsFor, useReviewStore } from "../reviews/store";
+import { summaryAvg, useReviewStore } from "../reviews/store";
 import { useTripTable } from "../store";
 import { KIND_LABEL, grantsFor, programsIn } from "./data";
 
 export function AbroadMapPanel({ iso }: { iso: string }) {
   const { state, dispatch } = useTripTable();
-  const { reviews } = useReviewStore();
+  useReviewStore();
   const term = state.abroadTerm;
   const programs = programsIn(iso, term);
   const termLabel = term === "Summer" ? "Summer" : `${term} semester`;
@@ -38,7 +38,7 @@ export function AbroadMapPanel({ iso }: { iso: string }) {
         </div>
         <ul className="ab-rows">
           {programs.map((p) => {
-            const avg = averageOf(reviewsFor(reviews, "program", p.id), "overall");
+            const avg = summaryAvg("program", [p.id], "overall");
             return (
               <li key={p.id}>
                 <button type="button" onClick={() => dispatch({ type: "openProgram", id: p.id })}>

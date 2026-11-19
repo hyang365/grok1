@@ -2,7 +2,7 @@
 
 **Yale travel, the way CourseTable treats classes.** See where Yale students travel and study abroad, read anonymous student ratings, plan trips with friends, and find the best way to get there from campus.
 
-**Live site:** https://hyang365.github.io/grok1/
+**Live site:** https://triptable.io
 
 https://github.com/user-attachments/assets/dbe7f935-b0db-4791-8db4-5b6a8971673f
 
@@ -58,7 +58,7 @@ The site connects to the production Supabase project by default. To use a differ
 
 ## Deploy
 
-Every push to `main` runs `.github/workflows/pages.yml`, which type-checks, builds and publishes the site to GitHub Pages. Asset paths are relative, so the same build works at `hyang365.github.io/grok1/` or at the root of a custom domain.
+Every push to `main` runs `.github/workflows/pages.yml`, which type-checks, builds and publishes the site to GitHub Pages. The site is served at **triptable.io** (domain registered at Wix, DNS pointed at GitHub Pages). Asset paths are relative, so the same build also works at `hyang365.github.io/grok1/`.
 
 ## Security and privacy
 

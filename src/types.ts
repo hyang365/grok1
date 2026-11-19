@@ -62,7 +62,7 @@ export type Person = {
 export type Scope = "all" | "countries" | "us";
 export type SortKey = "yalies" | "overall" | "affordability" | "safety" | "beauty";
 export type ThemeName = "light" | "dark";
-export type MapMode = "travel" | "abroad" | "local";
+export type MapMode = "travel" | "abroad";
 export type AbroadTerm = "Spring" | "Fall" | "Summer";
 export type ViewName = "map" | "catalog" | "friends" | "itinerary" | "flights" | "abroad" | "transit" | "profile";
 

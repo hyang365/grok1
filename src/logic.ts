@@ -1,4 +1,4 @@
-import { placeScores, reviews } from "./reviews/store";
+import { summaryAvg, summaryCount } from "./reviews/store";
 import { planCount, seasonYear } from "./live/plans";
 import { PLACES } from "./data";
 import type { Filters, Person, PersonTrip, Place, Season, Trip } from "./types";
@@ -315,21 +315,12 @@ export type ScoreKey = "overall" | "affordability" | "safety" | "beauty";
  * cities and destinations. A city's rating uses only that city's reviews.
  */
 export function scoreOf(placeId: string, key: ScoreKey): number | null {
-  const all = reviews.get().reviews;
-  const kids = CHILDREN.get(placeId);
-  if (!kids?.length) return placeScores(all, placeId)?.[key] ?? null;
-  const ids = new Set([placeId, ...kids]);
-  const vals = all
-    .filter((r) => r.targetType === "place" && ids.has(r.targetId))
-    .map((r) => r.ratings[key])
-    .filter((v): v is number => typeof v === "number");
-  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  return summaryAvg("place", [placeId, ...(CHILDREN.get(placeId) ?? [])], key);
 }
 
-/** How many reviews feed a place's rating (a country counts its cities' reviews too). */
+/** How many ratings feed a place's score (a country counts its cities' ratings too). */
 export function ratingCount(placeId: string): number {
-  const ids = new Set([placeId, ...(CHILDREN.get(placeId) ?? [])]);
-  return reviews.get().reviews.filter((r) => r.targetType === "place" && ids.has(r.targetId)).length;
+  return summaryCount("place", [placeId, ...(CHILDREN.get(placeId) ?? [])]);
 }
 
 export function sortScore(placeId: string, sort: ScoreKey): number {

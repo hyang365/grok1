@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type Dispatch, type ReactNode } from "react";
-import { PLACE_BY_ID, syncExtraPlaces } from "./data";
-import { inConnecticut, locateInConnecticut, pinAsPlace, type RetreatPin } from "./local/connecticut";
+import { PLACE_BY_ID } from "./data";
 import { sanitizeFlight } from "./trip/tripLogic";
 import { useAccount } from "./account/account";
 import { useReviewStore } from "./reviews/store";
@@ -49,9 +48,6 @@ export type State = {
   abroadIso: string | null;
   abroadProgramId: string | null;
   openTripId: string | null;
-  pins: RetreatPin[];
-  draftPin: { lat: number; lng: number } | null;
-  placingPin: boolean;
 };
 
 const SEASONS = new Set<Season>(["spring", "summer", "fall", "winter", "weekend"]);
@@ -83,36 +79,15 @@ function defaultState(): State {
     profileTab: "history",
     abroadIso: null,
     abroadProgramId: null,
-    pins: [],
-    draftPin: null,
-    placingPin: false,
   };
 }
 
-function sanitizePin(value: unknown): RetreatPin | null {
-  if (!value || typeof value !== "object") return null;
-  const pin = value as Partial<RetreatPin>;
-  if (typeof pin.id !== "string" || !pin.id.startsWith("pin-") || PLACE_BY_ID.has(pin.id)) return null;
-  if (typeof pin.name !== "string" || !pin.name.trim()) return null;
-  if (typeof pin.lat !== "number" || typeof pin.lng !== "number") return null;
-  if (!inConnecticut(pin.lat, pin.lng)) return null;
-  const area = locateInConnecticut(pin.lat, pin.lng) ?? "Connecticut";
-  return {
-    id: pin.id,
-    name: pin.name.trim().slice(0, 80),
-    lat: pin.lat,
-    lng: pin.lng,
-    note: typeof pin.note === "string" ? pin.note.slice(0, 500) : "",
-    area: typeof pin.area === "string" && pin.area.trim() ? pin.area.trim().slice(0, 60) : area,
-  };
-}
-
-function sanitizeTrip(value: unknown, pinIds: Set<string>): Trip | null {
+function sanitizeTrip(value: unknown): Trip | null {
   if (!value || typeof value !== "object") return null;
   const trip = value as Partial<Trip>;
   if (!trip.placeId || !trip.start || !trip.end || !trip.season) return null;
   if (!SEASONS.has(trip.season)) return null;
-  if (!PLACE_BY_ID.has(trip.placeId) && !pinIds.has(trip.placeId)) return null;
+  if (!PLACE_BY_ID.has(trip.placeId)) return null;
   return {
     id: String(trip.id || `trip-${trip.placeId}`),
     placeId: trip.placeId,
@@ -160,9 +135,7 @@ function loadState(): State {
     if (!SCOPES.has(filters.scope)) filters.scope = "all";
     filters.features = Array.isArray(incoming.features) ? incoming.features.filter((id) => FEATURE_IDS.has(id)) : [];
     filters.continents = Array.isArray(incoming.continents) ? incoming.continents.filter((name) => CONTINENT_NAMES.has(name)) : [];
-    const pins = Array.isArray(data.pins) ? data.pins.map(sanitizePin).filter((pin): pin is RetreatPin => pin !== null) : [];
-    const pinIds = new Set(pins.map((pin) => pin.id));
-    const mapMode: MapMode = data.mapMode === "abroad" || data.mapMode === "local" ? data.mapMode : "travel";
+    const mapMode: MapMode = data.mapMode === "abroad" ? "abroad" : "travel";
     return {
       ...base,
       theme: data.theme === "dark" ? "dark" : "light",
@@ -171,15 +144,14 @@ function loadState(): State {
       sort: data.sort && SORTS.has(data.sort) ? data.sort : base.sort,
       sortDir: data.sortDir === "asc" ? "asc" : "desc",
       filters,
-      selectedId: data.selectedId && (PLACE_BY_ID.has(data.selectedId) || pinIds.has(data.selectedId)) ? data.selectedId : null,
+      selectedId: data.selectedId && PLACE_BY_ID.has(data.selectedId) ? data.selectedId : null,
       showFriends: data.showFriends !== false,
-      trips: Array.isArray(data.trips) ? data.trips.map((trip) => sanitizeTrip(trip, pinIds)).filter((trip): trip is Trip => trip !== null) : base.trips,
+      trips: Array.isArray(data.trips) ? data.trips.map((trip) => sanitizeTrip(trip)).filter((trip): trip is Trip => trip !== null) : base.trips,
       friendFocus: typeof data.friendFocus === "string" ? data.friendFocus : base.friendFocus,
       toast: null,
       emptyGeo: null,
       homeTick: 0,
       mapMode,
-      pins,
       abroadTerm: data.abroadTerm === "Spring" || data.abroadTerm === "Summer" ? data.abroadTerm : "Fall",
       bucket: Array.isArray(data.bucket)
         ? data.bucket.filter((b): b is BucketItem => Boolean(b && typeof b.targetId === "string" && (b.kind === "place" || b.kind === "program")))
@@ -219,12 +191,7 @@ export type Action =
   | { type: "mergeTrips"; trips: Trip[] }
   | { type: "openTrip"; id: string | null }
   | { type: "updateTrip"; id: string; patch: Partial<Trip>; message?: string }
-  | { type: "openProgram"; id: string }
-  | { type: "startPlacing" }
-  | { type: "placePin"; lat: number; lng: number }
-  | { type: "savePin"; name: string; note: string }
-  | { type: "cancelPin" }
-  | { type: "removePin"; id: string };
+  | { type: "openProgram"; id: string };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -244,8 +211,6 @@ function reducer(state: State, action: Action): State {
         ...state,
         selectedId: action.id,
         emptyGeo: null,
-        draftPin: action.id ? state.draftPin : null,
-        placingPin: false,
         view: state.view === "catalog" ? "catalog" : action.id ? "map" : state.view,
       };
     case "selectEmpty":
@@ -258,8 +223,6 @@ function reducer(state: State, action: Action): State {
         emptyGeo: null,
         homeTick: state.homeTick + 1,
         abroadIso: null,
-        draftPin: null,
-        placingPin: false,
         filters: { ...state.filters, scope: "all" },
       };
     case "toggleFriends":
@@ -284,36 +247,7 @@ function reducer(state: State, action: Action): State {
     case "clearToast":
       return { ...state, toast: null };
     case "setMapMode":
-      return { ...state, mapMode: action.mode, view: "map", abroadIso: null, selectedId: null, emptyGeo: null, draftPin: null, placingPin: false };
-    case "startPlacing":
-      return { ...state, placingPin: true, draftPin: null, selectedId: null, emptyGeo: null, view: "map" };
-    case "placePin":
-      if (!inConnecticut(action.lat, action.lng)) return { ...state, toast: "Drop the pin inside Connecticut." };
-      return { ...state, draftPin: { lat: action.lat, lng: action.lng }, placingPin: false, selectedId: null, emptyGeo: null, view: "map" };
-    case "savePin": {
-      if (!state.draftPin) return state;
-      const name = action.name.trim();
-      if (!name) return state;
-      const pin: RetreatPin = {
-        id: `pin-${crypto.randomUUID()}`,
-        name: name.slice(0, 80),
-        lat: state.draftPin.lat,
-        lng: state.draftPin.lng,
-        note: action.note.trim().slice(0, 500),
-        area: locateInConnecticut(state.draftPin.lat, state.draftPin.lng) ?? "Connecticut",
-      };
-      return { ...state, pins: [pin, ...state.pins], draftPin: null, placingPin: false, selectedId: pin.id, toast: "Retreat saved" };
-    }
-    case "cancelPin":
-      return { ...state, draftPin: null, placingPin: false };
-    case "removePin":
-      return {
-        ...state,
-        pins: state.pins.filter((pin) => pin.id !== action.id),
-        trips: state.trips.filter((trip) => trip.placeId !== action.id),
-        selectedId: state.selectedId === action.id ? null : state.selectedId,
-        toast: "Removed retreat",
-      };
+      return { ...state, mapMode: action.mode, view: "map", abroadIso: null, selectedId: null, emptyGeo: null };
     case "toggleBucket": {
       const existing = state.bucket.find((b) => b.kind === action.kind && b.targetId === action.targetId);
       if (existing) return { ...state, bucket: state.bucket.filter((b) => b !== existing), toast: "Removed from your bucket list" };
@@ -359,14 +293,13 @@ const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadState);
-  syncExtraPlaces(state.pins.map(pinAsPlace));
 
   useEffect(() => {
     document.documentElement.dataset.theme = state.theme;
   }, [state.theme]);
 
   useEffect(() => {
-    const { toast: _toast, emptyGeo: _empty, homeTick: _home, abroadIso: _abroad, draftPin: _draft, placingPin: _placing, ...persist } = state;
+    const { toast: _toast, emptyGeo: _empty, homeTick: _home, abroadIso: _abroad, ...persist } = state;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persist));
   }, [state]);
 

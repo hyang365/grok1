@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { assertData, lookupPlace } from "./data";
 import { seasonLabel } from "./logic";
 import { MapView } from "./MapView";
-import { CatalogView, EmptyPanel, FilterRail, FriendsView, ItineraryView, PinDraftPanel, PlacePanel } from "./ui";
+import { CatalogView, EmptyPanel, FilterRail, FriendsView, ItineraryView, PlacePanel } from "./ui";
 import { StoreProvider, useCatalog, useTripTable } from "./store";
 import { ABROAD_CITIES } from "./abroad/data";
 import { FlightsView } from "./flights/FlightsView";
@@ -68,13 +68,12 @@ function Shell() {
   const searchRef = useRef<HTMLInputElement>(null);
   const selected = state.selectedId ? (lookupPlace(state.selectedId) ?? null) : null;
   const abroadMap = state.mapMode === "abroad";
-  const localMap = state.mapMode === "local";
   const placesView = state.view === "map" || state.view === "catalog";
   const tripsView = state.view === "itinerary" || state.view === "flights" || state.view === "transit";
   const upcomingCount = state.trips.filter(isUpcoming).length;
   const inviteCount = useInvites().incoming.length;
   useTripSync();
-  const panelOpen = abroadMap ? Boolean(state.abroadIso) : Boolean(selected || state.emptyGeo || state.draftPin);
+  const panelOpen = abroadMap ? Boolean(state.abroadIso) : Boolean(selected || state.emptyGeo);
 
   useEffect(() => {
     document.title = `TripTable · ${seasonLabel(state.season)}`;
@@ -96,15 +95,14 @@ function Shell() {
         searchRef.current?.focus();
       }
       if (event.key === "Escape") {
-        if (state.draftPin || state.placingPin) dispatch({ type: "cancelPin" });
-        else if (state.abroadIso) dispatch({ type: "selectAbroad", iso: null });
+        if (state.abroadIso) dispatch({ type: "selectAbroad", iso: null });
         else if (state.selectedId || state.emptyGeo) dispatch({ type: "select", id: null });
         setRailOpen(false);
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dispatch, state.emptyGeo, state.selectedId, state.abroadIso, state.draftPin, state.placingPin]);
+  }, [dispatch, state.emptyGeo, state.selectedId, state.abroadIso]);
 
   return (
     <div className="app">
@@ -118,19 +116,13 @@ function Shell() {
           ref={searchRef}
           className="search"
           type="search"
-          placeholder={localMap && state.view === "map" ? "Search your Connecticut retreats" : abroadMap && state.view === "map" ? "Search programs or countries" : "Search places, countries, or spots"}
+          placeholder={abroadMap && state.view === "map" ? "Search programs or countries" : "Search places, countries, or spots"}
           aria-label="Search places"
           value={state.filters.query}
           onChange={(event) => dispatch({ type: "patchFilters", patch: { query: event.target.value } })}
           onKeyDown={(event) => {
             if (event.key !== "Enter") return;
             const q = state.filters.query.trim().toLowerCase();
-            if (localMap && state.view === "map") {
-              const pin = state.pins.find((item) => item.name.toLowerCase().includes(q)) ?? state.pins.find((item) => item.area.toLowerCase().includes(q));
-              if (pin) dispatch({ type: "select", id: pin.id });
-              setRailOpen(false);
-              return;
-            }
             if (abroadMap && state.view === "map") {
               const city = ABROAD_CITIES.find((item) => item.city.toLowerCase().includes(q) || item.programs.some((program) => program.country.toLowerCase().includes(q) || program.name.toLowerCase().includes(q)));
               if (city) dispatch({ type: "selectAbroad", iso: city.iso });
@@ -223,9 +215,6 @@ function Shell() {
                 <span className="nav-long">Study abroad</span>
                 <span className="nav-short">Abroad</span>
               </button>
-              <button type="button" aria-pressed={localMap} className={localMap ? "active" : ""} onClick={() => dispatch({ type: "setMapMode", mode: "local" })}>
-                Local
-              </button>
             </div>
             {abroadMap ? (
               <div className="legend">
@@ -238,14 +227,6 @@ function Shell() {
                 <div className="legend-total legend-gray">
                   <i className="legend-swatch has-programs" /> Programs, not rated yet
                 </div>
-              </div>
-            ) : localMap ? (
-              <div className="legend">
-                <div className="legend-title">Connecticut</div>
-                <div className="legend-icons">
-                  <span><i className="li landmark" />Logged retreat</span>
-                </div>
-                <div className="legend-total">County lines, and a pin only where a club has logged one.</div>
               </div>
             ) : (
               <div className="legend">
@@ -277,15 +258,14 @@ function Shell() {
                 Filters
               </button>
               <button type="button" onClick={() => dispatch({ type: "world" })}>
-                {localMap ? "Connecticut" : "World"}
+                World
               </button>
             </div>
             {abroadMap ? (
               state.abroadIso ? <AbroadMapPanel iso={state.abroadIso} /> : null
             ) : (
               <>
-                {state.draftPin ? <PinDraftPanel /> : null}
-                {!state.draftPin && selected ? <PlacePanel place={selected} /> : null}
+                {selected ? <PlacePanel place={selected} /> : null}
                 {state.emptyGeo ? <EmptyPanel geo={state.emptyGeo} /> : null}
               </>
             )}

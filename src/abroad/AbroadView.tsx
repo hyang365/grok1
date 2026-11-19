@@ -3,7 +3,7 @@ import { useTripTable } from "../store";
 import { GRANTS, KIND_LABEL, PROGRAMS, REGIONS, grantsFor, type Program, type ProgramKind } from "./data";
 import { ReviewSection } from "../reviews/ReviewSection";
 import { BucketButton } from "../profile/ProfileMenu";
-import { PROGRAM_KEYS, averageOf, reviewsFor, useReviewStore, type Review } from "../reviews/store";
+import { PROGRAM_KEYS, summaryAvg, summaryCount, useReviewStore } from "../reviews/store";
 import "./abroad.css";
 
 const KINDS: ProgramKind[] = ["yss", "london", "nonyale-summer", "term"];
@@ -14,7 +14,7 @@ function Stars({ value }: { value: number | null }) {
 }
 
 export function AbroadView() {
-  const { reviews } = useReviewStore();
+  useReviewStore();
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<ProgramKind | "all">("all");
   const [region, setRegion] = useState<string>("all");
@@ -61,7 +61,6 @@ export function AbroadView() {
         <p className="fine">{rows.length} programs</p>
         <ul className="ab-rows">
           {rows.map((p) => {
-            const mine = reviewsFor(reviews, "program", p.id);
             return (
               <li key={p.id}>
                 <button type="button" className={p.id === selected.id ? "active" : ""} onClick={() => setSelectedId(p.id)}>
@@ -70,7 +69,7 @@ export function AbroadView() {
                     <span>{p.city}, {p.country} · {KIND_LABEL[p.kind]}</span>
                   </span>
                   <span className="ab-row-side">
-                    <Stars value={averageOf(mine, "overall")} />
+                    <Stars value={summaryAvg("program", [p.id], "overall")} />
                     <span className="fine">{grantsFor(p).length} grants</span>
                   </span>
                 </button>
@@ -83,12 +82,12 @@ export function AbroadView() {
           Full Yale Study Abroad database ↗
         </a>
       </section>
-      <ProgramDetail program={selected} reviews={reviewsFor(reviews, "program", selected.id)} />
+      <ProgramDetail program={selected} />
     </div>
   );
 }
 
-function ProgramDetail({ program, reviews }: { program: Program; reviews: Review[] }) {
+function ProgramDetail({ program }: { program: Program }) {
   const { dispatch } = useTripTable();
   const grants = grantsFor(program);
   return (
@@ -124,7 +123,7 @@ function ProgramDetail({ program, reviews }: { program: Program; reviews: Review
       </ul>
       <p className="fine">Eligibility depends on your aid status and citizenship. Confirm on each grant's page before you apply.</p>
 
-      <h3>Reviews ({reviews.length})</h3>
+      <h3>Reviews ({summaryCount("program", [program.id])})</h3>
       <ReviewSection
         targetType="program"
         targetId={program.id}

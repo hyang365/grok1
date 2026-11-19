@@ -18,8 +18,16 @@ export type Review = {
 
 export type Session = { userId: string; email: string } | null;
 
+/** Per place/program rating totals, from review_summary(): stats[key] = [sum, count]. */
+export type Summary = { n: number; written: number; stats: Record<string, [number, number]> };
+
 type Snapshot = {
+  /** Only the reviews this visitor needs: their own, plus written reviews of places they've opened. */
   reviews: Review[];
+  /** Rating totals for every rated place and program (small; this is what the map and lists use). */
+  summary: Map<string, Summary>;
+  /** How many written reviews have been loaded per target, and whether there are more. */
+  pages: Map<string, { loaded: number; more: boolean }>;
   session: Session;
   loading: boolean;
   error: string | null;
@@ -56,13 +64,14 @@ function readAuthError(): string | null {
 const LOCAL_KEY = "triptable-reviews-v2";
 const LOCAL_USER = "local-device";
 
-let snap: Snapshot = { reviews: [], session: null, loading: SHARED, error: null, version: 0, shared: SHARED, google: false, authError: readAuthError() };
+let snap: Snapshot = { reviews: [], summary: new Map(), pages: new Map(), session: null, loading: SHARED, error: null, version: 0, shared: SHARED, google: false, authError: readAuthError() };
 let useLocal = !SHARED;
 
 function goLocal() {
   // Database reachable but not set up yet (tables missing): keep the site working on-device.
   useLocal = true;
-  emit({ shared: false, loading: false, error: null, reviews: readLocal(), session: { userId: LOCAL_USER, email: "" } });
+  const local = readLocal();
+  emit({ shared: false, loading: false, error: null, reviews: local, summary: summarizeLocal(local), session: { userId: LOCAL_USER, email: "" } });
 }
 const listeners = new Set<() => void>();
 
@@ -116,24 +125,93 @@ const fromRow = (r: Row, mine: Set<string>, me: string): Review => ({
   createdAt: r.created_at,
 });
 
+const COLS = "id,target_type,target_id,author,term,year,ratings,body,created_at";
+const PAGE = 20;
+export const keyOf = (type: TargetType, id: string) => `${type}:${id}`;
+
+function summarizeLocal(list: Review[]): Map<string, Summary> {
+  const out = new Map<string, Summary>();
+  for (const r of list) {
+    const k = keyOf(r.targetType, r.targetId);
+    const cur = out.get(k) ?? { n: 0, written: 0, stats: {} };
+    cur.n += 1;
+    if (r.body.trim()) cur.written += 1;
+    for (const [key, v] of Object.entries(r.ratings)) {
+      if (typeof v !== "number") continue;
+      const [sum, c] = cur.stats[key] ?? [0, 0];
+      cur.stats[key] = [sum + v, c + 1];
+    }
+    out.set(k, cur);
+  }
+  return out;
+}
+
+let mineIds = new Set<string>();
+
+function merge(incoming: Review[], replaceTarget?: string): Review[] {
+  const keep = replaceTarget ? snap.reviews.filter((r) => keyOf(r.targetType, r.targetId) !== replaceTarget || mineIds.has(r.id)) : snap.reviews;
+  const byId = new Map(keep.map((r) => [r.id, r]));
+  for (const r of incoming) byId.set(r.id, r);
+  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** Rating totals for everything, plus your own reviews. Written reviews load per place (see loadTarget). */
 async function refresh() {
   if (!supabase || useLocal) return;
   const session = snap.session;
-  const [{ data, error }, mineRes] = await Promise.all([
-    supabase.from("reviews").select("id,target_type,target_id,author,term,year,ratings,body,created_at").order("created_at", { ascending: false }).limit(5000),
-    session?.email ? supabase.rpc("my_review_ids") : Promise.resolve({ data: [] as string[] }),
+  const [sumRes, mineRes] = await Promise.all([
+    supabase.rpc("review_summary"),
+    session?.email ? supabase.rpc("my_reviews") : Promise.resolve({ data: [] as Row[], error: null }),
   ]);
-  if (error && (error.code === "PGRST205" || error.code === "42P01" || /does not exist|could not find the table/i.test(error.message))) return goLocal();
-  const mine = new Set<string>(Array.isArray(mineRes.data) ? (mineRes.data as string[]) : []);
-  if (error) emit({ loading: false, error: "Couldn't load reviews. Try again in a minute." });
-  else emit({ loading: false, error: null, reviews: (data as Row[]).map((r) => fromRow(r, mine, session?.userId ?? "")) });
+  const error = sumRes.error;
+  if (error && (error.code === "PGRST202" || error.code === "PGRST205" || error.code === "42P01" || /does not exist|could not find/i.test(error.message))) return goLocal();
+  if (error) {
+    emit({ loading: false, error: "Couldn't load reviews. Try again in a minute." });
+    return;
+  }
+  const summary = new Map<string, Summary>();
+  for (const row of (sumRes.data as { target_type: TargetType; target_id: string; n: number; written: number; stats: Record<string, [number, number]> }[]) ?? []) {
+    summary.set(keyOf(row.target_type, row.target_id), { n: row.n, written: row.written, stats: row.stats ?? {} });
+  }
+  const mineRows = (Array.isArray(mineRes.data) ? (mineRes.data as Row[]) : []);
+  mineIds = new Set(mineRows.map((r) => r.id));
+  const me = session?.userId ?? "";
+  const mine = mineRows.map((r) => fromRow(r, mineIds, me));
+  // Keep written reviews already loaded for open places; re-mark ownership.
+  const others = snap.reviews.filter((r) => !mineIds.has(r.id) && r.userId !== me).map((r) => ({ ...r, userId: "" }));
+  const byId = new Map([...others, ...mine].map((r) => [r.id, r]));
+  emit({ loading: false, error: null, summary, reviews: [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)) });
+}
+
+/** Load (or load more of) one place's or program's written reviews, newest first. */
+async function loadTarget(type: TargetType, id: string, more = false) {
+  if (!supabase || useLocal) return;
+  const k = keyOf(type, id);
+  const page = snap.pages.get(k);
+  if (!more && page) return;
+  const from = more && page ? page.loaded : 0;
+  const { data, error } = await supabase
+    .from("reviews")
+    .select(COLS)
+    .eq("target_type", type)
+    .eq("target_id", id)
+    .neq("body", "")
+    .order("created_at", { ascending: false })
+    .range(from, from + PAGE - 1);
+  if (error) return;
+  const rows = (data as Row[]) ?? [];
+  const list = rows.map((r) => fromRow(r, mineIds, snap.session?.userId ?? ""));
+  const pages = new Map(snap.pages);
+  pages.set(k, { loaded: from + rows.length, more: rows.length === PAGE });
+  emit({ pages, reviews: more ? merge(list) : merge(list, k) });
 }
 
 function init() {
   // Old local-only program reviews from the first version of the Study Abroad tab.
   localStorage.removeItem("triptable-abroad-reviews-v1");
   if (!supabase) {
-    snap = { ...snap, reviews: readLocal(), session: { userId: LOCAL_USER, email: "" }, loading: false };
+    const local = readLocal();
+    snap = { ...snap, reviews: local, summary: summarizeLocal(local), session: { userId: LOCAL_USER, email: "" }, loading: false };
     return;
   }
   supabase.auth.getSession().then(({ data }) => {
@@ -167,6 +245,7 @@ export type Draft = Omit<Review, "id" | "userId" | "createdAt">;
 export const reviews = {
   clearAuthError: () => emit({ authError: null }),
   refresh: () => refresh(),
+  loadTarget: (type: TargetType, id: string, more = false) => loadTarget(type, id, more),
   subscribe(fn: () => void) {
     listeners.add(fn);
     return () => {
@@ -207,7 +286,7 @@ export const reviews = {
       const review: Review = { ...draft, id: `local-${Date.now()}`, userId: LOCAL_USER, createdAt: new Date().toISOString() };
       const next = [review, ...snap.reviews.filter((r) => !(r.targetType === draft.targetType && r.targetId === draft.targetId && r.userId === LOCAL_USER))];
       writeLocal(next);
-      emit({ reviews: next });
+      emit({ reviews: next, summary: summarizeLocal(next) });
       return null;
     }
     const { error } = await supabase.rpc("save_review", {
@@ -219,7 +298,12 @@ export const reviews = {
       p_body: draft.body,
     });
     if (error) return error.message.includes("row-level security") ? "Only @yale.edu accounts can post reviews." : error.message;
+    const k = keyOf(draft.targetType, draft.targetId);
+    const pages = new Map(snap.pages);
+    pages.delete(k);
+    snap = { ...snap, pages };
     await refresh();
+    await loadTarget(draft.targetType, draft.targetId);
     return null;
   },
 
@@ -227,11 +311,19 @@ export const reviews = {
     if (!supabase || useLocal) {
       const next = snap.reviews.filter((r) => r.id !== id);
       writeLocal(next);
-      emit({ reviews: next });
+      emit({ reviews: next, summary: summarizeLocal(next) });
       return;
     }
+    const gone = snap.reviews.find((r) => r.id === id);
     await supabase.rpc("delete_review", { p_id: id });
+    snap = { ...snap, reviews: snap.reviews.filter((r) => r.id !== id) };
     await refresh();
+    if (gone) {
+      const pages = new Map(snap.pages);
+      pages.delete(keyOf(gone.targetType, gone.targetId));
+      snap = { ...snap, pages };
+      await loadTarget(gone.targetType, gone.targetId);
+    }
   },
 
   async report(id: string, reason: string): Promise<string | null> {
@@ -256,18 +348,29 @@ export function averageOf(list: Review[], key: string): number | null {
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
+/** Totals for one place or program (null if nobody has rated it). */
+export function summaryOf(type: TargetType, id: string): Summary | null {
+  return snap.summary.get(keyOf(type, id)) ?? null;
+}
+
+/** Average of one score across one or more places/programs, from the summary. */
+export function summaryAvg(type: TargetType, ids: string[], key: string): number | null {
+  let sum = 0;
+  let count = 0;
+  for (const id of ids) {
+    const st = snap.summary.get(keyOf(type, id))?.stats[key];
+    if (st) {
+      sum += st[0];
+      count += st[1];
+    }
+  }
+  return count ? sum / count : null;
+}
+
+/** How many ratings (written or not) across one or more places/programs. */
+export function summaryCount(type: TargetType, ids: string[]): number {
+  return ids.reduce((n, id) => n + (snap.summary.get(keyOf(type, id))?.n ?? 0), 0);
+}
+
 export const PLACE_KEYS = ["overall", "affordability", "safety", "beauty"] as const;
 export const PROGRAM_KEYS = ["overall", "academics", "housing", "value"] as const;
-
-/** Place scores built only from real reviews. Null until someone reviews the place. */
-export function placeScores(all: Review[], placeId: string) {
-  const list = reviewsFor(all, "place", placeId);
-  if (!list.length) return null;
-  return {
-    overall: averageOf(list, "overall") ?? 0,
-    affordability: averageOf(list, "affordability") ?? 0,
-    safety: averageOf(list, "safety") ?? 0,
-    beauty: averageOf(list, "beauty") ?? 0,
-    count: list.length,
-  };
-}

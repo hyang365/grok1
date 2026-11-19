@@ -101,9 +101,13 @@ export const account = {
   subscribe(fn: () => void) {
     listeners.add(fn);
     if (poll === null) {
+      // Friends and requests: every 3 minutes while the tab is open, and right away when you return to it.
       poll = window.setInterval(() => {
         if (currentUser && document.visibilityState === "visible") void load();
-      }, 60_000);
+      }, 180_000);
+      document.addEventListener("visibilitychange", () => {
+        if (currentUser && document.visibilityState === "visible") void load();
+      });
     }
     return () => {
       listeners.delete(fn);

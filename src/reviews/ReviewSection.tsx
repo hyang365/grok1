@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { averageOf, reviews, reviewsFor, useReviewStore, type TargetType } from "./store";
+import { useEffect, useState } from "react";
+import { keyOf, reviews, reviewsFor, summaryAvg, summaryOf, useReviewStore, type TargetType } from "./store";
 import "./reviews.css";
 
 export const COLLEGES = [
@@ -70,12 +70,21 @@ export function ReviewSection({
   terms: string[];
   prompt: string;
 }) {
-  const { reviews: all, session, loading, error, shared } = useReviewStore();
+  const { reviews: all, session, loading, error, shared, pages } = useReviewStore();
+  // Ratings come from the small server-side summary; written reviews load 20 at a time when this opens.
+  useEffect(() => {
+    void reviews.loadTarget(targetType, targetId);
+  }, [targetType, targetId]);
   const list = reviewsFor(all, targetType, targetId);
   const mine = session ? list.find((r) => r.userId === session.userId) : undefined;
   const written = list.filter((r) => r.body.trim());
-  const ratingsOnly = list.length - written.length;
+  const sum = summaryOf(targetType, targetId);
+  const total = sum?.n ?? 0;
+  const writtenTotal = sum?.written ?? written.length;
+  const ratingsOnly = Math.max(0, total - writtenTotal);
+  const page = pages.get(keyOf(targetType, targetId));
   const [open, setOpen] = useState(false);
+  const [moreBusy, setMoreBusy] = useState(false);
 
   return (
     <div className="rv">
@@ -83,14 +92,14 @@ export function ReviewSection({
         {keys.map((k) => (
           <div key={k}>
             <span className="field-label">{label(k)}</span>
-            <ScoreValue value={averageOf(list, k)} />
+            <ScoreValue value={summaryAvg(targetType, [targetId], k)} />
           </div>
         ))}
       </div>
       <p className="fine">
-        {list.length === 0
+        {total === 0
           ? "No reviews yet."
-          : `${written.length} ${written.length === 1 ? "review" : "reviews"}${ratingsOnly ? ` and ${ratingsOnly} ${ratingsOnly === 1 ? "rating" : "ratings"}` : ""} from Yale students.`}
+          : `${writtenTotal} ${writtenTotal === 1 ? "review" : "reviews"}${ratingsOnly ? ` and ${ratingsOnly} ${ratingsOnly === 1 ? "rating" : "ratings"}` : ""} from Yale students.`}
         {!shared ? " Reviews are saved on this device only until the site's database is connected." : ""}
       </p>
       {error ? <p className="form-error">{error}</p> : null}
@@ -140,6 +149,20 @@ export function ReviewSection({
           </li>
         ))}
       </ul>
+      {page?.more ? (
+        <button
+          className="textlink rv-more"
+          type="button"
+          disabled={moreBusy}
+          onClick={async () => {
+            setMoreBusy(true);
+            await reviews.loadTarget(targetType, targetId, true);
+            setMoreBusy(false);
+          }}
+        >
+          {moreBusy ? "Loading…" : "Show more reviews"}
+        </button>
+      ) : null}
     </div>
   );
 }

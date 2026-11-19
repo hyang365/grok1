@@ -70,7 +70,10 @@ export const invites = {
     if (poll === null) {
       poll = window.setInterval(() => {
         if (me && document.visibilityState === "visible") void load();
-      }, 45_000);
+      }, 120_000);
+      document.addEventListener("visibilitychange", () => {
+        if (me && document.visibilityState === "visible") void load();
+      });
     }
     return () => {
       listeners.delete(fn);

@@ -100,9 +100,10 @@ function entities(feed: unknown): Obj[] {
 }
 
 // ---------- fetching ----------
-function proxyUrl(feed: string, id?: string) {
+function proxyUrl(feed: string, id?: string, stops?: Set<string>) {
   if (!PROXY) return null;
-  return `${PROXY}?feed=${feed}${id ? `&id=${encodeURIComponent(id)}` : ""}`;
+  const stopParam = stops?.size ? `&stops=${[...stops].sort().join(",")}` : "";
+  return `${PROXY}?feed=${feed}${id ? `&id=${encodeURIComponent(id)}` : ""}${stopParam}`;
 }
 async function getJson(url: string, viaProxy = false): Promise<unknown> {
   const headers: Record<string, string> = {};
@@ -136,12 +137,13 @@ async function firstOf(loaders: [string, () => Promise<unknown>][]): Promise<{ d
   throw last ?? new Error("no source");
 }
 
-function ctLoaders(kind: "trips" | "vehicles"): [string, () => Promise<unknown>][] {
+function ctLoaders(kind: "trips" | "vehicles", stops?: Set<string>): [string, () => Promise<unknown>][] {
   const list: [string, () => Promise<unknown>][] = [
     ["CTtransit", () => getJson(CT_JSON[kind])],
     ["CTtransit", () => getPb(CT_PB[kind])],
   ];
-  const p = proxyUrl(kind === "trips" ? "ct-trips" : "ct-vehicles");
+  // The relay trims the feed server-side: only arrivals at our stops, only buses near campus.
+  const p = proxyUrl(kind === "trips" ? "ct-trips" : "ct-vehicles", undefined, kind === "trips" ? stops : undefined);
   if (p) list.push(["CTtransit via TripTable", () => getJson(p, true)]);
   return list;
 }
@@ -153,7 +155,7 @@ async function loadBuses(st: Static, stopIds: Set<string>, stopNames: Map<string
     const r = st.ct?.routes[rid];
     return { route: r?.short || rid || "Bus", color: r?.color || "" };
   };
-  const [tripsRes, vehRes] = await Promise.allSettled([firstOf(ctLoaders("trips")), firstOf(ctLoaders("vehicles"))]);
+  const [tripsRes, vehRes] = await Promise.allSettled([firstOf(ctLoaders("trips", stopIds)), firstOf(ctLoaders("vehicles"))]);
   const now = Date.now();
   const arrivals: BusArrival[] = [];
   if (tripsRes.status === "fulfilled") {

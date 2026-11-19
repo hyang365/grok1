@@ -33,9 +33,13 @@ function start() {
   if (started) return;
   started = true;
   void refreshPlans();
+  // Plan counts change slowly: refresh every 5 minutes while the tab is open, and when you come back to it.
   window.setInterval(() => {
     if (document.visibilityState === "visible") void refreshPlans();
-  }, 60_000);
+  }, 300_000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void refreshPlans();
+  });
 }
 
 export const plansStore = {
