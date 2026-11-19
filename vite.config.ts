@@ -16,8 +16,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         inlineDynamicImports: true,
+        // Fixed names, so a browser still holding an older index.html always finds the files;
+        // scripts/stamp.mjs adds ?v=<content hash> so a new deploy is fetched right away.
         entryFileNames: "app.js",
-        assetFileNames: "assets/[name]-[hash][extname]",
+        assetFileNames: (info) => (info.names?.some((n) => n.endsWith(".css")) ? "style.css" : "assets/[name]-[hash][extname]"),
       },
     },
   },
