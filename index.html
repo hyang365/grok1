@@ -15,12 +15,20 @@
     <meta property="og:description" content="Where Yale students travel and study abroad, rated anonymously by students." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://triptable.io/logo.png" />
-    <meta property="og:url" content="https://triptable.io/" />
-    <link rel="canonical" href="https://triptable.io/" />
+    <meta property="og:url" content="https://triptable.io/maps" />
+    <link rel="canonical" href="https://triptable.io/maps" />
     <link rel="icon" type="image/png" href="./logo-120.png" />
     <link rel="apple-touch-icon" href="./logo-120.png" />
   </head>
   <body>
+    <script>
+      // /maps/ would make ./app.js resolve inside /maps/. The site roots keep their slash.
+      (function () {
+        var path = location.pathname;
+        if (path === "/" || path === "/grok1/") return;
+        if (path.endsWith("/")) location.replace(path.replace(/\/+$/, "") + location.search + location.hash);
+      })();
+    </script>
     <noscript>TripTable needs JavaScript to run.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

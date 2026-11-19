@@ -17,6 +17,7 @@ const PROFILE_TABS = new Set<ProfileTab>(["history", "bucket", "reviews", "setti
 const SEGMENTS: Record<string, ViewName> = {
   "": "map",
   map: "map",
+  maps: "map",
   catalog: "catalog",
   friends: "friends",
   itinerary: "itinerary",
@@ -55,6 +56,7 @@ export function routeUrl(s: { view: ViewName; mapMode: MapMode; openTripId: stri
   let segment = "";
   switch (s.view) {
     case "map":
+      segment = "maps";
       if (s.mapMode === "abroad") q.set("layer", "study-abroad");
       break;
     case "catalog":
