@@ -1,6 +1,7 @@
 import * as am5 from "@amcharts/amcharts5";
 import * as am5map from "@amcharts/amcharts5/map";
-import worldHigh from "@amcharts/amcharts5-geodata/worldHigh";
+// Same world map with the Great Lakes cut out, so they show as water.
+import worldHigh from "@amcharts/amcharts5-geodata/worldGreatLakesHigh";
 import usaLow from "@amcharts/amcharts5-geodata/usaLow";
 import { useEffect, useRef } from "react";
 import { COUNTRY_BY_ISO, lookupPlace, PLACES } from "./data";
