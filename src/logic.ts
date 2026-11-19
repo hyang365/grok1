@@ -341,3 +341,9 @@ export function ratingCount(placeId: string): number {
 export function sortScore(placeId: string, sort: ScoreKey): number {
   return scoreOf(placeId, sort) ?? -1;
 }
+
+/** A friend's trips that haven't ended yet, soonest first. */
+export function upcomingTrips(person: Person): PersonTrip[] {
+  const today = new Date().toISOString().slice(0, 10);
+  return person.trips.filter((t) => t.end >= today).sort((a, b) => a.start.localeCompare(b.start));
+}

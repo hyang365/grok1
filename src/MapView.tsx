@@ -5,7 +5,7 @@ import worldHigh from "@amcharts/amcharts5-geodata/worldGreatLakesHigh";
 import usaLow from "@amcharts/amcharts5-geodata/usaLow";
 import { useEffect, useRef } from "react";
 import { COUNTRY_BY_ISO, lookupPlace, PLACES } from "./data";
-import { passesFilters, ratingColor, scoreOf, seasonLabel, visitCount } from "./logic";
+import { formatRange, passesFilters, ratingColor, scoreOf, seasonLabel, upcomingTrips, visitCount } from "./logic";
 import { useCatalog, useFriends, useTripTable } from "./store";
 import { usePlans } from "./live/plans";
 import { summaryAvg, useReviewStore } from "./reviews/store";
@@ -259,25 +259,24 @@ export function MapView() {
       });
     }
 
+    // One friend at a time, picked in the map legend: every trip they have coming up, any season.
     const friendDots: PointDatum[] = [];
-    if (state.showFriends) {
+    const person = state.mapFriend ? friends.find((f) => f.netid === state.mapFriend) : undefined;
+    if (person) {
       const stacks = new Map<string, number>();
-      for (const person of friends) {
-        for (const trip of person.trips) {
-          if (trip.season !== state.season) continue;
-          const place = lookupPlace(trip.placeId);
-          if (!place) continue;
-          const index = stacks.get(place.id) ?? 0;
-          stacks.set(place.id, index + 1);
-          friendDots.push({
-            latitude: place.lat + index * 0.04,
-            longitude: place.lng + 0.05,
-            placeId: place.id,
-            tooltip: `${person.name}\n${place.name}`,
-            radius: 7,
-            fill: 0xe39b12,
-          });
-        }
+      for (const trip of upcomingTrips(person)) {
+        const place = lookupPlace(trip.placeId);
+        if (!place) continue;
+        const index = stacks.get(place.id) ?? 0;
+        stacks.set(place.id, index + 1);
+        friendDots.push({
+          latitude: place.lat + index * 0.04,
+          longitude: place.lng + 0.05,
+          placeId: place.id,
+          tooltip: `${person.name}\n${place.name} · ${formatRange(trip.start, trip.end)}`,
+          radius: 8,
+          fill: 0xe39b12,
+        });
       }
     }
     setPoints(api, "spots", spots);
@@ -504,11 +503,28 @@ export function MapView() {
 
   useEffect(() => {
     paintRef.current();
-  }, [state.theme, state.season, state.filters, state.showFriends, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, state.abroadFilters, passed, friends, maxCountry, plansVersion, reviewsVersion]);
+  }, [state.theme, state.season, state.filters, state.mapFriend, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, state.abroadFilters, passed, friends, maxCountry, plansVersion, reviewsVersion]);
 
   useEffect(() => {
     zoomRef.current();
   }, [state.selectedId, state.emptyGeo, state.homeTick, state.mapMode, state.abroadIso, panelOpen, selected]);
+
+  // Picking a friend frames the map on their trips (unless you're looking at a place already).
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api?.ready || !state.mapFriend || state.selectedId || state.mapMode !== "travel") return;
+    const person = friends.find((f) => f.netid === state.mapFriend);
+    const spots = person ? upcomingTrips(person).map((t) => lookupPlace(t.placeId)).filter((p): p is NonNullable<typeof p> => Boolean(p)) : [];
+    if (!spots.length) return;
+    const lats = spots.map((p) => p.lat);
+    const lngs = spots.map((p) => p.lng);
+    const pad = spots.length === 1 ? 8 : 4;
+    api.chart.zoomToGeoBounds(
+      { left: Math.min(...lngs) - pad, right: Math.max(...lngs) + pad, top: Math.min(85, Math.max(...lats) + pad), bottom: Math.max(-60, Math.min(...lats) - pad) },
+      500,
+    );
+    // Only when the pick changes, not every time friends' data refreshes.
+  }, [state.mapFriend]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div className="map" ref={hostRef} />;
 }

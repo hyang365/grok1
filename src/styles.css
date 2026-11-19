@@ -765,3 +765,13 @@ details.inside-wrap .inside { margin-bottom: 8px; }
 .ab-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .ab-shell > .ab-page { flex: 1; }
 .rail-select { width: 100%; height: 30px; margin-top: 4px; font-size: 13px; border: 1px solid var(--color-border-control); border-radius: 8px; background: var(--color-surface); color: var(--color-text); padding: 0 8px; }
+/* Map legend: one friend's trips at a time */
+.friend-picker { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--color-border); max-width: 230px; }
+.friend-picker-row { display: flex; align-items: center; gap: 6px; }
+.friend-picker select { flex: 1; min-width: 0; height: 26px; font-size: 12px; border: 1px solid var(--color-border-control); border-radius: 6px; background: var(--color-surface); color: var(--color-text); padding: 0 4px; }
+.friend-picker select:disabled { color: var(--color-text-tertiary); }
+.legend-dot.friend { width: 10px; height: 10px; border-radius: 50%; background: #e39b12; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); flex: none; }
+.friend-trips { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.friend-trips li { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.friend-trips .textlink { font-size: 12px; padding: 0; }
+.friend-trips-empty { margin: 6px 0 0; }

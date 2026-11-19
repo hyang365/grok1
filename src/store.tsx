@@ -51,6 +51,8 @@ export type State = {
   abroadIso: string | null;
   abroadProgramId: string | null;
   openTripId: string | null;
+  /** The one friend whose planned trips the map is showing (none by default; not saved). */
+  mapFriend: string | null;
 };
 
 const SEASONS = new Set<Season>(["spring", "summer", "fall", "winter", "weekend"]);
@@ -83,6 +85,7 @@ function defaultState(): State {
     profileTab: "history",
     abroadIso: null,
     abroadProgramId: null,
+    mapFriend: null,
   };
 }
 
@@ -216,7 +219,8 @@ export type Action =
   | { type: "mergeTrips"; trips: Trip[] }
   | { type: "openTrip"; id: string | null }
   | { type: "updateTrip"; id: string; patch: Partial<Trip>; message?: string }
-  | { type: "openProgram"; id: string };
+  | { type: "openProgram"; id: string }
+  | { type: "setMapFriend"; netid: string | null };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -306,6 +310,8 @@ function reducer(state: State, action: Action): State {
       return applyRoute(state, action.route);
     case "selectAbroad":
       return { ...state, abroadIso: action.iso, selectedId: null, emptyGeo: null };
+    case "setMapFriend":
+      return { ...state, mapFriend: action.netid };
     case "openProgram":
       return { ...state, view: "abroad", abroadProgramId: action.id };
     case "reset":
@@ -330,7 +336,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state.theme]);
 
   useEffect(() => {
-    const { toast: _toast, emptyGeo: _empty, homeTick: _home, abroadIso: _abroad, ...persist } = state;
+    const { toast: _toast, emptyGeo: _empty, homeTick: _home, abroadIso: _abroad, mapFriend: _friend, ...persist } = state;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persist));
   }, [state]);
 

@@ -20,6 +20,7 @@ import {
   seasonLabel,
   sortScore,
   travelGuidance,
+  upcomingTrips,
   visitCount,
   SEASONS,
 } from "./logic";
@@ -329,10 +330,6 @@ function TravelRail({ open, onPick }: { open: boolean; onPick: () => void }) {
             </button>
           ))}
         </div>
-        <label className="check">
-          <input type="checkbox" checked={state.showFriends} onChange={() => dispatch({ type: "toggleFriends" })} />
-          Show friends on the map
-        </label>
         <button
           className="textlink"
           type="button"
@@ -1191,5 +1188,57 @@ function InvitesSidebar() {
         </ul>
       )}
     </aside>
+  );
+}
+
+/** Map legend control: pick one friend to see the trips they have planned. */
+export function FriendTripsPicker() {
+  const { state, dispatch } = useTripTable();
+  const me = useMe();
+  const friends = useFriends();
+  const person = state.mapFriend ? friends.find((f) => f.netid === state.mapFriend) : undefined;
+  const trips = person ? upcomingTrips(person) : [];
+  const sorted = [...friends].sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <div className="friend-picker">
+      <label className="friend-picker-row">
+        <span className="legend-dot friend" aria-hidden="true" />
+        <span className="sr">Show a friend's trips</span>
+        <select
+          value={person ? person.netid : ""}
+          disabled={!me.signedIn || friends.length === 0}
+          onChange={(e) => dispatch({ type: "setMapFriend", netid: e.target.value || null })}
+          aria-label="Show a friend's planned trips"
+        >
+          <option value="">{!me.signedIn ? "Sign in to see friends' trips" : friends.length ? "Friends' trips: pick a friend" : "Add friends to see their trips"}</option>
+          {sorted.map((f) => (
+            <option key={f.netid} value={f.netid}>
+              {f.name} ({upcomingTrips(f).length})
+            </option>
+          ))}
+        </select>
+      </label>
+      {person ? (
+        trips.length ? (
+          <ul className="friend-trips">
+            {trips.slice(0, 6).map((t) => {
+              const place = lookupPlace(t.placeId);
+              if (!place) return null;
+              return (
+                <li key={`${t.placeId}-${t.start}`}>
+                  <button type="button" className="textlink" onClick={() => dispatch({ type: "select", id: place.id })}>
+                    {place.name}
+                  </button>
+                  <span className="fine">{formatRange(t.start, t.end)}</span>
+                </li>
+              );
+            })}
+            {trips.length > 6 ? <li className="fine">+{trips.length - 6} more</li> : null}
+          </ul>
+        ) : (
+          <p className="fine friend-trips-empty">{person.name.split(" ")[0]} has no trips planned yet.</p>
+        )
+      ) : null}
+    </div>
   );
 }

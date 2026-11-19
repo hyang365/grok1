@@ -460,9 +460,6 @@ function Settings() {
         <label className="check">
           <input type="checkbox" checked={fs.boycottAvelo} onChange={(e) => flightStore.set({ boycottAvelo: e.target.checked })} /> Boycott Avelo (hide Tweed in Flights)
         </label>
-        <label className="check">
-          <input type="checkbox" checked={state.showFriends} onChange={() => dispatch({ type: "toggleFriends" })} /> Show friends on the map
-        </label>
       </div>
       <div className="pf-card">
         <h3>Help us fix things</h3>
