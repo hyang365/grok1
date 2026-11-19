@@ -1,4 +1,5 @@
 import type { Place, Stay } from "./types";
+import { extraCatalog } from "./morePlaces";
 import { SPOT_ROWS } from "./spots";
 
 
@@ -1261,6 +1262,11 @@ const CATS: Record<string, Place["cat"]> = {
 for (const p of PLACES) {
   if (p.kind !== "spot" || p.cat) continue;
   p.cat = CATS[p.id] ?? (p.tags.includes("city") ? "city" : p.tags.some((t) => ["hike", "nature", "mountain"].includes(t)) ? "park" : "landmark");
+}
+
+for (const extra of extraCatalog()) {
+  if (PLACES.some((place) => place.id === extra.id)) continue;
+  PLACES.push(extra);
 }
 
 export const PLACE_BY_ID = new Map(PLACES.map((place) => [place.id, place]));

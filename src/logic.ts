@@ -1,6 +1,7 @@
 import { summaryAvg, summaryCount } from "./reviews/store";
 import { planCount, seasonYear } from "./live/plans";
 import { PLACES } from "./data";
+import { CONTINENT_BY_ISO } from "./morePlaces";
 import { YALE_RECESSES, recessWindow } from "./yaleCalendar";
 import type { Filters, Person, PersonTrip, Place, Season, Trip } from "./types";
 
@@ -112,7 +113,11 @@ export const FEATURES: { id: string; label: string; tags: string[] }[] = [
 
 export const CONTINENTS = ["North America", "Caribbean", "Central America", "South America", "Europe", "Africa", "Asia", "Oceania"];
 
-const BLOCKED_ISOS = new Set(["AF", "BY", "BF", "MM", "CF", "HT", "IR", "IQ", "LY", "ML", "KP", "RU", "SO", "SS", "SD", "SY", "UA", "VE", "YE", "LB"]);
+// State Department Level 4 countries, the list Yale College uses for its undergraduate travel ban.
+// TravelGov, 9 November 2026: Afghanistan, Belarus, Burkina Faso, Burma, Central African Republic,
+// Chad, DR Congo, Haiti, Iran, Iraq, Lebanon, Libya, Mali, Niger, North Korea, Russia, Somalia,
+// South Sudan, Sudan, Syria, Uganda, Ukraine, Yemen. Venezuela is not on that list.
+const BLOCKED_ISOS = new Set(["AF", "BY", "BF", "MM", "CF", "TD", "CD", "HT", "IR", "IQ", "LB", "LY", "ML", "NE", "KP", "RU", "SO", "SS", "SD", "SY", "UG", "UA", "YE"]);
 
 const REGIONAL: Record<string, string> = {
   MX: "A Level 4 advisory covers specific states, including Colima, Guerrero, Michoacán, Sinaloa, Tamaulipas, and Zacatecas. Yale will not sponsor travel to those states. Mexico City and Oaxaca are outside that list.",
@@ -192,7 +197,8 @@ const ISO_CONTINENT: Record<string, string[]> = {
 };
 
 export function continentsOf(place: Place): string[] {
-  return ISO_CONTINENT[place.iso] ?? ["North America"];
+  const extra = CONTINENT_BY_ISO[place.iso];
+  return ISO_CONTINENT[place.iso] ?? (extra ? [extra] : ["North America"]);
 }
 
 export function featureMatch(place: Place, id: string): boolean {
@@ -211,8 +217,8 @@ export function travelGuidance(iso: string): Guidance {
   if (BLOCKED_ISOS.has(iso)) {
     return {
       level: "blocked",
-      title: "Yale will not sponsor this",
-      detail: `The State Department Level 4 “Do Not Travel” advisory means Yale College will not fund, credit, or sponsor undergraduate travel to this country. No exceptions. ${WAIVER}`,
+      title: "On Yale's travel ban list",
+      detail: "This country is on Yale's travel ban list. The State Department Level 4 “Do Not Travel” advisory means Yale College will not fund, credit, or sponsor undergraduate travel here. No exceptions.",
     };
   }
   if (iso === "CU") {
