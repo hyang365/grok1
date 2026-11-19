@@ -96,6 +96,17 @@ export type GroupFlight = {
   setAt: string;
 };
 
+/** A flight the student entered: out of a nearby airport, or back into one. */
+export type TripFlight = {
+  id: string;
+  dir: "out" | "back";
+  airport: string; // HVN, BDL, JFK, LGA, EWR, BOS, or another code / name
+  airline: string;
+  number: string; // digits only, e.g. "1503"
+  date: string; // YYYY-MM-DD
+  time: string; // HH:MM local: departure for "out", arrival for "back"
+};
+
 export type Trip = {
   id: string;
   placeId: string;
@@ -105,6 +116,8 @@ export type Trip = {
   note: string;
   friendNetids: string[];
   groupFlight?: GroupFlight;
+  flights?: TripFlight[];
+  checklist?: string[];
 };
 
 export type BucketItem = {

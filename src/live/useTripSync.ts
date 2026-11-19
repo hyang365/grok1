@@ -1,7 +1,24 @@
 import { useEffect, useRef } from "react";
 import { useReviewStore } from "../reviews/store";
 import { useTripTable } from "../store";
-import { syncTrips } from "./plans";
+import { syncTrips, type RemoteTrip } from "./plans";
+import { sanitizeFlight } from "../trip/tripLogic";
+import type { Trip, TripFlight } from "../types";
+
+function toTrip(r: RemoteTrip): Trip {
+  const d = r.details ?? {};
+  return {
+    id: r.id,
+    placeId: r.place_id,
+    season: r.season,
+    start: r.start_date,
+    end: r.end_date,
+    note: typeof d.note === "string" ? d.note : "",
+    friendNetids: Array.isArray(d.friendNetids) ? d.friendNetids.filter((x): x is string => typeof x === "string") : [],
+    flights: Array.isArray(d.flights) ? d.flights.map(sanitizeFlight).filter((f): f is TripFlight => f !== null) : [],
+    checklist: Array.isArray(d.checklist) ? d.checklist.filter((x): x is string => typeof x === "string") : [],
+  };
+}
 
 /**
  * Keeps a signed-in Yale student's trips in the database, so they count (anonymously)
@@ -17,12 +34,11 @@ export function useTripSync() {
     if (!userId) return;
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(async () => {
-      const remoteOnly = await syncTrips(state.trips, userId);
-      if (remoteOnly.length) {
-        dispatch({
-          type: "mergeTrips",
-          trips: remoteOnly.map((r) => ({ id: r.id, placeId: r.place_id, season: r.season, start: r.start_date, end: r.end_date, note: "", friendNetids: [] })),
-        });
+      const { added, changed } = await syncTrips(state.trips, userId);
+      if (added.length) dispatch({ type: "mergeTrips", trips: added.map(toTrip) });
+      for (const r of changed) {
+        const t = toTrip(r);
+        dispatch({ type: "updateTrip", id: t.id, patch: { placeId: t.placeId, season: t.season, start: t.start, end: t.end, note: t.note, friendNetids: t.friendNetids, flights: t.flights, checklist: t.checklist } });
       }
     }, 800);
     return () => {

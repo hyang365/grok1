@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useMemo, useReducer, type Dispatch, type ReactNode } from "react";
 import { PLACE_BY_ID } from "./data";
+import { sanitizeFlight } from "./trip/tripLogic";
 import { useAccount } from "./account/account";
 import { useReviewStore } from "./reviews/store";
 import { usePlans } from "./live/plans";
 import { passesFilters, sortScore, visitCount } from "./logic";
-import type { AbroadTerm, BucketItem, ProfileTab, FlightLeg, GroupFlight, Filters, MapMode, Person, Place, Season, Scope, SortKey, ThemeName, Trip, ViewName } from "./types";
+import type { AbroadTerm, BucketItem, ProfileTab, FlightLeg, GroupFlight, Filters, MapMode, Person, Place, Season, Scope, SortKey, ThemeName, Trip, TripFlight, ViewName } from "./types";
 
 export const DEFAULT_FILTERS: Filters = {
   overall: 1,
@@ -46,6 +47,7 @@ export type State = {
   profileTab: ProfileTab;
   abroadIso: string | null;
   abroadProgramId: string | null;
+  openTripId: string | null;
 };
 
 const SEASONS = new Set<Season>(["spring", "summer", "fall", "winter", "weekend"]);
@@ -67,6 +69,7 @@ function defaultState(): State {
     emptyGeo: null,
     showFriends: true,
     trips: [],
+    openTripId: null,
     friendFocus: null,
     toast: null,
     homeTick: 0,
@@ -94,6 +97,8 @@ function sanitizeTrip(value: unknown): Trip | null {
     note: typeof trip.note === "string" ? trip.note : "",
     friendNetids: Array.isArray(trip.friendNetids) ? trip.friendNetids.filter((id) => typeof id === "string") : [],
     groupFlight: sanitizeGroupFlight(trip.groupFlight),
+    flights: Array.isArray(trip.flights) ? trip.flights.map(sanitizeFlight).filter((f): f is TripFlight => f !== null) : [],
+    checklist: Array.isArray(trip.checklist) ? trip.checklist.filter((c) => typeof c === "string").slice(0, 20) : [],
   };
 }
 
@@ -153,6 +158,7 @@ function loadState(): State {
       profileTab: data.profileTab && ["history", "bucket", "reviews", "settings", "moderation"].includes(data.profileTab) ? data.profileTab : "history",
       abroadIso: null,
       abroadProgramId: typeof data.abroadProgramId === "string" ? data.abroadProgramId : null,
+      openTripId: typeof data.openTripId === "string" ? data.openTripId : null,
     };
   } catch {
     return base;
@@ -182,6 +188,8 @@ export type Action =
   | { type: "setBucketDone"; id: string; done: boolean }
   | { type: "openProfile"; tab: ProfileTab }
   | { type: "mergeTrips"; trips: Trip[] }
+  | { type: "openTrip"; id: string | null }
+  | { type: "updateTrip"; id: string; patch: Partial<Trip>; message?: string }
   | { type: "openProgram"; id: string };
 
 function reducer(state: State, action: Action): State {
@@ -227,7 +235,12 @@ function reducer(state: State, action: Action): State {
       return { ...state, trips, toast: action.message ?? "Saved to itinerary" };
     }
     case "removeTrip":
-      return { ...state, trips: state.trips.filter((trip) => trip.id !== action.id), toast: "Removed from itinerary" };
+      return {
+        ...state,
+        trips: state.trips.filter((trip) => trip.id !== action.id),
+        openTripId: state.openTripId === action.id ? null : state.openTripId,
+        toast: "Removed from itinerary",
+      };
     case "toast":
       return { ...state, toast: action.message };
     case "clearToast":
@@ -242,6 +255,14 @@ function reducer(state: State, action: Action): State {
     }
     case "setBucketDone":
       return { ...state, bucket: state.bucket.map((b) => (b.id === action.id ? { ...b, done: action.done } : b)) };
+    case "openTrip":
+      return { ...state, openTripId: action.id, view: action.id ? "itinerary" : state.view };
+    case "updateTrip":
+      return {
+        ...state,
+        trips: state.trips.map((t) => (t.id === action.id ? { ...t, ...action.patch } : t)),
+        toast: action.message ?? state.toast,
+      };
     case "mergeTrips": {
       const have = new Set(state.trips.map((t) => t.id));
       const add = action.trips.filter((t) => !have.has(t.id));

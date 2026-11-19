@@ -15,6 +15,7 @@ import { AbroadMapPanel } from "./abroad/AbroadMapPanel";
 import { TransitView } from "./transit/TransitView";
 import { ProfileMenu } from "./profile/ProfileMenu";
 import { BudgetFinder } from "./budget/BudgetFinder";
+import { JoinTrip } from "./trip/JoinTrip";
 import { ProfileView } from "./profile/ProfileView";
 import { isUpcoming } from "./profile/trips";
 import "./abroad/abroad.css";
@@ -172,7 +173,10 @@ function Shell() {
           {NAV.map(([view, label]) => {
             const active = view === "itinerary" ? tripsView : state.view === view;
             return (
-              <button key={view} className={active ? "nav-btn active" : "nav-btn"} type="button" onClick={() => dispatch({ type: "setView", view })}>
+              <button key={view} className={active ? "nav-btn active" : "nav-btn"} type="button" onClick={() => {
+                if (view === "itinerary") dispatch({ type: "openTrip", id: null });
+                dispatch({ type: "setView", view });
+              }}>
                 {view === "abroad" ? (
                   <>
                     <span className="nav-long">Study Abroad</span>
@@ -280,6 +284,7 @@ function Shell() {
       {tripsView ? <TripsShell /> : null}
       {budgetOpen ? <BudgetFinder onClose={() => setBudgetOpen(false)} /> : null}
       <AuthBanner />
+      <JoinTrip />
       {state.toast ? (
         <div className="toast" role="status">
           {state.toast}

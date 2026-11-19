@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { FindFlightsButton, GroupFlightSummary } from "./flights/FlightsView";
+import { PlanCard } from "./trip/PlanCard";
+import { TripDetail, countdownLabel, leaveByLine } from "./trip/TripDetail";
+import { checklistFor } from "./trip/tripLogic";
 import { PLACE_BY_ID, PLACES } from "./data";
 import { account, displayName, useAccount, useMe } from "./account/account";
 import { SignInBox } from "./reviews/ReviewSection";
@@ -11,14 +13,12 @@ import {
   formatMoney,
   formatRange,
   friendsAtPlace,
-  parseISODate,
   ratingBand,
   scoreOf,
   ratingCount,
   seasonLabel,
   travelGuidance,
   visitCount,
-  defaultWindow,
   SEASONS,
 } from "./logic";
 import { DEFAULT_FILTERS, useCatalog, useFriends, useTripTable } from "./store";
@@ -256,7 +256,7 @@ export function PlacePanel({ place }: { place: Place }) {
   const { state, dispatch } = useTripTable();
   const friends = useFriends();
   const { passed } = useCatalog();
-  const [tab, setTab] = useState<"evals" | "stays" | "history" | "plan">("evals");
+  const [tab, setTab] = useState<"evals" | "stays" | "history">("evals");
   useEffect(() => {
     setTab("evals");
   }, [place.id]);
@@ -298,9 +298,9 @@ export function PlacePanel({ place }: { place: Place }) {
           </button>
         </div>
         <p className="blurb">{place.blurb}</p>
-        <FindFlightsButton placeId={place.id} />
-        <BucketButton kind="place" targetId={place.id} label={place.name} />
         <GuidanceNote iso={place.iso} />
+        <PlanCard place={place} />
+        <BucketButton kind="place" targetId={place.id} label={place.name} />
         <p className="fine">{continentsOf(place).join(" and ")}</p>
         <ul className="tags">
           {place.atlas ? <li className="tag atlas-tag">Micro</li> : null}
@@ -399,7 +399,6 @@ export function PlacePanel({ place }: { place: Place }) {
               ["evals", "Reviews"],
               ["stays", "Stays"],
               ["history", "History"],
-              ["plan", trip ? "Your plan" : "Plan"],
             ] as const
           ).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? "tab active" : "tab"} onClick={() => setTab(id)}>
@@ -444,7 +443,6 @@ export function PlacePanel({ place }: { place: Place }) {
           </>
         ) : null}
         {tab === "history" ? <HistoryChart place={place} season={state.season} /> : null}
-        {tab === "plan" ? <PlanForm place={place} /> : null}
       </div>
     </aside>
   );
@@ -475,120 +473,6 @@ function HistoryChart({ place, season }: { place: Place; season: Season }) {
         </div>
       ))}
     </div>
-  );
-}
-
-function PlanForm({ place, onDone }: { place: Place; onDone?: () => void }) {
-  const { state, dispatch } = useTripTable();
-  const friends = useFriends();
-  const existing = state.trips.find((trip) => trip.placeId === place.id);
-  const initialSeason = existing?.season ?? state.season;
-  const initialWindow = defaultWindow(initialSeason);
-  const [season, setSeason] = useState<Season>(initialSeason);
-  const [start, setStart] = useState(existing?.start ?? initialWindow[0]);
-  const [end, setEnd] = useState(existing?.end ?? initialWindow[1]);
-  const [note, setNote] = useState(existing?.note ?? "");
-  const [withIds, setWithIds] = useState<string[]>(existing?.friendNetids ?? []);
-
-  useEffect(() => {
-    const nextSeason = existing?.season ?? state.season;
-    const win = defaultWindow(nextSeason);
-    setSeason(nextSeason);
-    setStart(existing?.start ?? win[0]);
-    setEnd(existing?.end ?? win[1]);
-    setNote(existing?.note ?? "");
-    setWithIds(existing?.friendNetids ?? []);
-  }, [place.id, existing, state.season]);
-
-  const invalid = parseISODate(end) < parseISODate(start);
-  const blocked = travelGuidance(place.iso).level === "blocked";
-
-  function useBreak() {
-    const win = defaultWindow(season);
-    setStart(win[0]);
-    setEnd(win[1]);
-  }
-
-  return (
-    <form
-      className="plan"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (invalid || blocked) return;
-        dispatch({
-          type: "saveTrip",
-          trip: {
-            id: existing?.id ?? `trip-${place.id}`,
-            placeId: place.id,
-            season,
-            start,
-            end,
-            note,
-            friendNetids: withIds,
-          },
-        });
-        onDone?.();
-      }}
-    >
-      <label>
-        Season
-        <select value={season} onChange={(event) => setSeason(event.target.value as Season)}>
-          {SEASONS.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="date-row">
-        <label>
-          Start
-          <input type="date" value={start} onChange={(event) => setStart(event.target.value)} required />
-        </label>
-        <label>
-          End
-          <input type="date" value={end} onChange={(event) => setEnd(event.target.value)} required />
-        </label>
-      </div>
-      <button className="textlink" type="button" onClick={useBreak}>
-        Use the Yale break dates
-      </button>
-      {invalid ? <p className="form-error">End date is before the start date.</p> : null}
-      {blocked ? <p className="form-error">Yale College will not sponsor undergraduate travel here.</p> : null}
-      <label>
-        Note
-        <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} placeholder="Where you are staying, who has the reservation" />
-      </label>
-      <fieldset>
-        <legend>Share with friends</legend>
-        {friends.length === 0 ? <p className="fine">Add friends first. Their names show up here.</p> : null}
-        {friends.map((person) => (
-          <label key={person.netid} className="check">
-            <input
-              type="checkbox"
-              checked={withIds.includes(person.netid)}
-              onChange={() =>
-                setWithIds((current) => (current.includes(person.netid) ? current.filter((id) => id !== person.netid) : [...current, person.netid]))
-              }
-            />
-            {person.name}
-            <span className="fine">
-              {person.college} '{person.year.slice(2)}
-            </span>
-          </label>
-        ))}
-      </fieldset>
-      <div className="plan-actions">
-        <button className="primary" type="submit" disabled={invalid || blocked}>
-          {existing ? "Update itinerary" : "Add to itinerary"}
-        </button>
-        {existing ? (
-          <button className="textlink danger" type="button" onClick={() => dispatch({ type: "removeTrip", id: existing.id })}>
-            Remove
-          </button>
-        ) : null}
-      </div>
-    </form>
   );
 }
 
@@ -716,7 +600,7 @@ export function CatalogView() {
                 ×
               </button>
             </div>
-            <PlanForm place={adding} onDone={() => setAdding(null)} />
+            <PlanCard place={adding} startOpen onSaved={() => setAdding(null)} />
           </div>
         </div>
       ) : null}
@@ -932,42 +816,31 @@ export function FriendsView() {
   );
 }
 
-function OverlapLine({ placeId, start, end, names }: { placeId: string; start: string; end: string; names: string[] }) {
-  const n = useOverlap(placeId, start, end);
-  return (
-    <p className="overlap-line">
-      {n === null ? "Overlap shows once you're signed in" : n === 0 ? "No other Yalies have saved these dates yet" : <><b>{n}</b> other {n === 1 ? "Yalie overlaps" : "Yalies overlap"} these dates</>}
-      {names.length ? ` · with ${names.join(" and ")}` : ""}
-    </p>
-  );
-}
-
 export function ItineraryView() {
   const { state, dispatch } = useTripTable();
   useReviewStore();
+  const friends = useFriends();
+  const open = state.openTripId ? state.trips.find((t) => t.id === state.openTripId) : undefined;
+  if (open) return <TripDetail trip={open} />;
   const upcoming = state.trips.filter(isUpcoming).sort((a, b) => a.start.localeCompare(b.start));
   const pastCount = state.trips.filter(isPast).length;
-  const friends = useFriends();
   return (
     <div className="itinerary">
       <header>
         <div>
           <h2>Upcoming trips</h2>
-          <p>Your plans, who else is going, and how to get there.</p>
+          <p>Open a trip to add flights, see when to leave campus, and invite friends.</p>
         </div>
       </header>
       {upcoming.length === 0 ? (
         <div className="empty-card">
-          <p>No upcoming trips yet.</p>
-          <button className="primary" type="button" onClick={() => dispatch({ type: "setView", view: "map" })}>
-            Find a place on the map
-          </button>
+          <p>No upcoming trips yet. Pick a place on the map and press "Plan a trip".</p>
+          <div className="plan-actions">
+            <button className="primary" type="button" onClick={() => dispatch({ type: "setView", view: "map" })}>
+              Find a place on the map
+            </button>
+          </div>
         </div>
-      ) : null}
-      {pastCount ? (
-        <button type="button" className="textlink" onClick={() => dispatch({ type: "openProfile", tab: "history" })}>
-          {pastCount} past {pastCount === 1 ? "trip" : "trips"} in your trip history →
-        </button>
       ) : null}
       <ul className="cards">
         {upcoming.map((trip) => {
@@ -976,38 +849,40 @@ export function ItineraryView() {
           const names = trip.friendNetids
             .map((id) => friends.find((person) => person.netid === id)?.name)
             .filter((name): name is string => Boolean(name));
+          const checks = checklistFor(trip);
+          const done = (trip.checklist ?? []).filter((id) => checks.some((c) => c.id === id)).length;
+          const leave = leaveByLine(trip);
           return (
-            <li key={trip.id} className="card">
-              <div className="card-top">
-                <div>
-                  <p className="kicker">{seasonLabel(trip.season)}</p>
-                  <h3>{place.name}</h3>
-                  <p>{formatRange(trip.start, trip.end)}</p>
+            <li key={trip.id} className="card trip-card">
+              <button type="button" className="trip-card-btn" onClick={() => dispatch({ type: "openTrip", id: trip.id })}>
+                <div className="card-top">
+                  <div>
+                    <p className="kicker">
+                      {seasonLabel(trip.season)} · {countdownLabel(trip)}
+                    </p>
+                    <h3>{place.name}</h3>
+                    <p>{formatRange(trip.start, trip.end)}</p>
+                  </div>
+                  <Rating value={scoreOf(place.id, "overall")} />
                 </div>
-                <Rating value={scoreOf(place.id, "overall")} />
-              </div>
-              {trip.note ? <p>{trip.note}</p> : null}
-              <GroupFlightSummary trip={trip} />
-              <OverlapLine placeId={place.id} start={trip.start} end={trip.end} names={names} />
-              <TravelLinks name={place.name} />
-              <div className="plan-actions">
-                <button
-                  type="button"
-                  onClick={() => {
-                    dispatch({ type: "setSeason", season: trip.season });
-                    dispatch({ type: "select", id: place.id });
-                  }}
-                >
-                  View on map
-                </button>
-                <button className="textlink danger" type="button" onClick={() => dispatch({ type: "removeTrip", id: trip.id })}>
-                  Remove
-                </button>
-              </div>
+                <p className="fine">{names.length ? `With ${names.join(", ")}` : "Just you so far"}</p>
+                <p className={leave ? "trip-card-leave" : "fine"}>{leave ?? "No flights added yet"}</p>
+                <div className="trip-card-foot">
+                  <span className="fine">
+                    Checklist {done}/{checks.length}
+                  </span>
+                  <span className="trip-card-open">Open trip →</span>
+                </div>
+              </button>
             </li>
           );
         })}
       </ul>
+      {pastCount ? (
+        <button type="button" className="textlink" onClick={() => dispatch({ type: "openProfile", tab: "history" })}>
+          {pastCount} past {pastCount === 1 ? "trip" : "trips"} in your trip history →
+        </button>
+      ) : null}
     </div>
   );
 }

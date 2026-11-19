@@ -91,27 +91,47 @@ export function useOverlap(placeId: string | null, start?: string, end?: string)
 }
 
 // ---------- syncing your own trips (signed-in Yale accounts only) ----------
-type Row = { id: string; place_id: string; season: Season; start_date: string; end_date: string };
+type Details = { note?: string; friendNetids?: string[]; flights?: unknown[]; checklist?: string[] };
+type Row = { id: string; place_id: string; season: Season; start_date: string; end_date: string; details: Details };
+export type RemoteTrip = Row;
 
 let lastSynced = new Map<string, string>();
 
-/** Push local trips to the database and remove ones you deleted. Returns trips that exist only remotely. */
-export async function syncTrips(trips: Trip[], userId: string): Promise<Row[]> {
-  if (!supabase) return [];
-  const sig = (t: { place_id: string; season: string; start_date: string; end_date: string }) => `${t.place_id}|${t.season}|${t.start_date}|${t.end_date}`;
-  const { data, error } = await supabase.from("trips").select("id,place_id,season,start_date,end_date");
-  if (error) return [];
-  const remote = new Map((data as Row[]).map((r) => [r.id, r]));
-  const local = new Map(trips.map((t) => [t.id, { id: t.id, place_id: t.placeId, season: t.season, start_date: t.start, end_date: t.end }]));
+function detailsOf(t: Trip): Details {
+  return { note: t.note, friendNetids: t.friendNetids, flights: t.flights ?? [], checklist: t.checklist ?? [] };
+}
+const sig = (t: Omit<Row, "id">) => JSON.stringify([t.place_id, t.season, t.start_date, t.end_date, t.details ?? {}]);
 
-  const upserts = [...local.values()].filter((r) => !remote.has(r.id) || sig(remote.get(r.id)!) !== sig(r));
+/**
+ * Push local trips (with their flights, friends, notes and checklist) to the database and remove ones you deleted.
+ * Returns trips that exist only remotely, and trips another device changed since this one last synced.
+ */
+export async function syncTrips(trips: Trip[], userId: string): Promise<{ added: Row[]; changed: Row[] }> {
+  if (!supabase) return { added: [], changed: [] };
+  const { data, error } = await supabase.from("trips").select("id,place_id,season,start_date,end_date,details").eq("user_id", userId);
+  if (error) return { added: [], changed: [] };
+  const remote = new Map((data as Row[]).map((r) => [r.id, { ...r, details: r.details ?? {} }]));
+  const local = new Map(trips.map((t) => [t.id, { id: t.id, place_id: t.placeId, season: t.season, start_date: t.start, end_date: t.end, details: detailsOf(t) }]));
+
+  // Another device edited a trip this device hasn't touched since its last sync: take the remote version.
+  const changed = [...local.values()].filter((r) => {
+    const rem = remote.get(r.id);
+    return rem && lastSynced.get(r.id) === sig(r) && sig(rem) !== sig(r);
+  });
+  const changedIds = new Set(changed.map((r) => r.id));
+
+  const upserts = [...local.values()].filter((r) => !changedIds.has(r.id) && (!remote.has(r.id) || sig(remote.get(r.id)!) !== sig(r)));
   if (upserts.length) await supabase.from("trips").upsert(upserts.map((r) => ({ ...r, user_id: userId, updated_at: new Date().toISOString() })));
 
   // Only delete remote trips this device previously synced and has since removed.
   const removed = [...remote.keys()].filter((id) => !local.has(id) && lastSynced.has(id));
   if (removed.length) await supabase.from("trips").delete().in("id", removed);
 
-  lastSynced = new Map([...local.values()].map((r) => [r.id, sig(r)]));
+  lastSynced = new Map([...local.values()].map((r) => [r.id, sig(changedIds.has(r.id) ? remote.get(r.id)! : r)]));
+  for (const r of remote.values()) if (!local.has(r.id) && !removed.includes(r.id)) lastSynced.set(r.id, sig(r));
   if (upserts.length || removed.length) void refreshPlans();
-  return [...remote.values()].filter((r) => !local.has(r.id) && !removed.includes(r.id));
+  return {
+    added: [...remote.values()].filter((r) => !local.has(r.id) && !removed.includes(r.id)),
+    changed: changed.map((r) => remote.get(r.id)!),
+  };
 }
