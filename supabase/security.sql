@@ -76,3 +76,8 @@ alter table public.profiles add constraint profiles_avatar_url_check
 -- ---------- google_calendar_links ----------
 -- private.gcal_links(user_id, refresh_token, events): Google Calendar refresh tokens, readable only by the
 -- gcal edge function through gcal_get / gcal_save / gcal_set_events / gcal_forget (service_role only).
+
+-- ---------- review_votes ----------
+-- public.review_votes(review_id, user_id, vote ±1): no direct access for anon/authenticated.
+-- review_votes_for(ids) returns public up/down totals plus the caller's own vote; vote_review(id, -1|0|1)
+-- (Yale accounts, not your own review, 120 votes/hour) broadcasts new totals on the "review-votes" channel.

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { keyOf, reviews, reviewsFor, summaryAvg, summaryOf, useReviewStore, type TargetType } from "./store";
+import { useVotes, votes } from "./votes";
 import "./reviews.css";
 
 export const COLLEGES = [
@@ -98,6 +99,10 @@ export function ReviewSection({
   const page = pages.get(include.length ? `${keyOf(targetType, targetId)}+` : keyOf(targetType, targetId));
   const [open, setOpen] = useState(false);
   const [moreBusy, setMoreBusy] = useState(false);
+  const writtenIds = written.map((r) => r.id).join(",");
+  useEffect(() => {
+    if (shared && writtenIds) votes.ensure(writtenIds.split(","));
+  }, [shared, writtenIds]);
 
   return (
     <div className="rv">
@@ -156,6 +161,7 @@ export function ReviewSection({
             <p className="fine">{keys.map((k) => `${label(k)} ${r.ratings[k] ?? "—"}`).join(" · ")}</p>
             <p>{r.body}</p>
             <div className="rv-actions">
+              {shared ? <VoteBar id={r.id} own={Boolean(session && r.userId === session.userId)} signedIn={Boolean(session?.email)} /> : null}
               {session && r.userId === session.userId ? (
                 <button className="textlink danger" type="button" onClick={() => void reviews.remove(r.id)}>Delete</button>
               ) : shared && session ? (
@@ -180,6 +186,38 @@ export function ReviewSection({
         </button>
       ) : null}
     </div>
+  );
+}
+
+const THUMB = "M2 7h3v8H2zm4.5 8H12a2 2 0 002-1.6l1-5A2 2 0 0013 6H9.6l.5-2.6A1.6 1.6 0 007.2 2.6L5.5 7v8z";
+
+/** Thumbs up / down with the net score (it can go below zero). Totals update live for everyone. */
+function VoteBar({ id, own, signedIn }: { id: string; own: boolean; signedIn: boolean }) {
+  useVotes();
+  const t = votes.tally(id);
+  const [msg, setMsg] = useState("");
+  const net = t ? t.up - t.down : 0;
+  const why = own ? "You can't vote on your own review" : signedIn ? "" : "Sign in to vote";
+  const cast = async (dir: 1 | -1) => {
+    if (own || !signedIn) {
+      setMsg(why);
+      return;
+    }
+    setMsg((await votes.cast(id, dir)) ?? "");
+  };
+  return (
+    <span className="rv-vote" title={t ? `${t.up} up · ${t.down} down` : undefined}>
+      <button type="button" className={t?.mine === 1 ? "rv-thumb up on" : "rv-thumb up"} aria-pressed={t?.mine === 1} aria-label="Helpful (thumbs up)" onClick={() => void cast(1)}>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d={THUMB} /></svg>
+      </button>
+      <span className={net > 0 ? "rv-net pos" : net < 0 ? "rv-net neg" : "rv-net"} aria-live="polite" aria-label={`Score ${net}`}>
+        {net}
+      </span>
+      <button type="button" className={t?.mine === -1 ? "rv-thumb down on" : "rv-thumb down"} aria-pressed={t?.mine === -1} aria-label="Not helpful (thumbs down)" onClick={() => void cast(-1)}>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d={THUMB} /></svg>
+      </button>
+      {msg ? <span className="fine rv-vote-msg">{msg}</span> : null}
+    </span>
   );
 }
 
