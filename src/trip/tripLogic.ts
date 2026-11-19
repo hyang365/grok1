@@ -1,7 +1,7 @@
 // Trip details: flights, "leave by" times, invite links and calendar export.
 
 import { GATEWAYS, clock, duration, type Gateway } from "../flights/engine";
-import { PLACE_BY_ID } from "../data";
+import { lookupPlace } from "../data";
 import { formatRange, parseISODate } from "../logic";
 import type { Season, Trip, TripFlight } from "../types";
 
@@ -60,7 +60,7 @@ export function gatewayOf(code: string): Gateway | undefined {
 }
 
 export function isDomestic(trip: Trip): boolean {
-  const iso = PLACE_BY_ID.get(trip.placeId)?.iso;
+  const iso = lookupPlace(trip.placeId)?.iso;
   return iso === "US" || iso === "PR";
 }
 
@@ -175,7 +175,7 @@ export function readInvite(raw: string | null): Invite | null {
   if (!raw || raw.length > 4000) return null;
   try {
     const inv = JSON.parse(unb64url(raw)) as Partial<Invite>;
-    if (inv.v !== 1 || typeof inv.p !== "string" || !PLACE_BY_ID.has(inv.p)) return null;
+    if (inv.v !== 1 || typeof inv.p !== "string" || !lookupPlace(inv.p)) return null;
     if (!SEASONS.has(String(inv.s)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(inv.a)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(inv.b))) return null;
     return {
       v: 1,
@@ -216,7 +216,7 @@ function icsText(s: string): string {
 }
 
 export function tripCalendar(trip: Trip): string {
-  const place = PLACE_BY_ID.get(trip.placeId);
+  const place = lookupPlace(trip.placeId);
   const name = place?.name ?? "Trip";
   const intl = !isDomestic(trip);
   const ev: string[] = [];
@@ -262,7 +262,7 @@ export function tripCalendar(trip: Trip): string {
 }
 
 export function downloadCalendar(trip: Trip) {
-  const place = PLACE_BY_ID.get(trip.placeId);
+  const place = lookupPlace(trip.placeId);
   const blob = new Blob([tripCalendar(trip)], { type: "text/calendar" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

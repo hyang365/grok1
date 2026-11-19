@@ -1,5 +1,5 @@
 import { todayISO } from "../flights/engine";
-import { PLACE_BY_ID } from "../data";
+import { lookupPlace } from "../data";
 import type { Season, Trip } from "../types";
 
 /** A trip is history once its last day has passed. */
@@ -13,7 +13,7 @@ export function isUpcoming(trip: Trip): boolean {
 
 /** Country ISO for a trip, whether it's to a country or a spot inside one. */
 export function countryOf(trip: Trip): string | null {
-  const place = PLACE_BY_ID.get(trip.placeId);
+  const place = lookupPlace(trip.placeId);
   if (!place) return null;
   return place.iso;
 }
