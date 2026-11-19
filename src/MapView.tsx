@@ -2,8 +2,10 @@ import * as am5 from "@amcharts/amcharts5";
 import * as am5map from "@amcharts/amcharts5/map";
 import worldHigh from "@amcharts/amcharts5-geodata/worldHigh";
 import usaLow from "@amcharts/amcharts5-geodata/usaLow";
+import ctHigh from "@amcharts/amcharts5-geodata/region/usa/ctHigh";
 import { useEffect, useRef } from "react";
-import { COUNTRY_BY_ISO, PLACE_BY_ID, PLACES } from "./data";
+import { COUNTRY_BY_ISO, lookupPlace, PLACES } from "./data";
+import { pinAsPlace } from "./local/connecticut";
 import { passesFilters, ratingColor, scoreOf, seasonLabel, visitCount } from "./logic";
 import { useCatalog, useFriends, useTripTable } from "./store";
 import { usePlans } from "./live/plans";
@@ -29,6 +31,12 @@ const ICON_PATH: Record<NonNullable<PointDatum["icon"]>, string> = {
   landmark: "M6 0.4l1.7 3.6 3.9.5-2.9 2.7.8 3.9L6 9.2l-3.5 1.9.8-3.9L.4 4.5l3.9-.5z",
 };
 const ICON_FILL: Record<NonNullable<PointDatum["icon"]>, number> = { city: 0x0b3d91, park: 0x2f7d32, landmark: 0xd9822b };
+// Water is a quiet blue and unrated land is warm paper, so the coast reads without a neon sea.
+const SEA = { light: 0x7ea4c8, dark: 0x0b1824 };
+const LAND = { light: 0xf6f3ec, dark: 0x3c3a36 };
+const LINE = { light: 0xd3c9bb, dark: 0x514e48 };
+const PROGRAM_LAND = { light: 0xd7e3f4, dark: 0x243044 };
+const CT_BOUNDS = { left: -73.8, right: -71.75, top: 42.08, bottom: 40.95 };
 // Zoomed out, only these major tourism destinations get a dot.
 const MAJOR = new Set(
   "nyc la sf miami nola chicago lasvegas dc honolulu grandcanyon yosemite orlando sanjuan cancun cdmx tulum rome florence venice amalfi paris nice barcelona madrid london edinburgh lisbon amsterdam berlin prague dubrovnik athens santorini istanbul reykjavik marrakech cairo tokyo kyoto seoul beijing shanghai greatwall bangkok phuket ubud hanoi sydney cartagena machupicchu toronto montreal vancouver banff nassau puntacana montegobay interlaken dublin lafortuna".split(" "),
@@ -44,6 +52,7 @@ type Api = {
   spots: am5map.MapPointSeries;
   pals: am5map.MapPointSeries;
   states: am5map.MapPolygonSeries;
+  counties: am5map.MapPolygonSeries;
   background: am5.Rectangle;
   ready: boolean;
   seen: Set<string>;
@@ -74,19 +83,106 @@ export function MapView() {
   const zoomToken = useRef(0);
 
   const abroad = state.mapMode === "abroad";
+  const local = state.mapMode === "local";
   const modeRef = useRef(state.mapMode);
   modeRef.current = state.mapMode;
   const abroadTermRef = useRef(state.abroadTerm);
   abroadTermRef.current = state.abroadTerm;
-  const panelOpen = abroad ? Boolean(state.abroadIso) : Boolean(state.selectedId || state.emptyGeo);
-  const selected = state.selectedId ? PLACE_BY_ID.get(state.selectedId) : undefined;
+  const placingRef = useRef(state.placingPin);
+  placingRef.current = state.placingPin;
+  const openRef = useRef(false);
+  openRef.current = Boolean(state.selectedId || state.emptyGeo || state.draftPin || state.abroadIso);
+  const panelOpen = abroad ? Boolean(state.abroadIso) : Boolean(state.selectedId || state.emptyGeo || state.draftPin);
+  const selected = state.selectedId ? lookupPlace(state.selectedId) : undefined;
+  const focusedRef = useRef(false);
+  const prevModeRef = useRef(state.mapMode);
+  const prevHomeRef = useRef(state.homeTick);
 
   paintRef.current = () => {
     const api = apiRef.current;
     if (!api?.ready) return;
     const dark = state.theme === "dark";
     const seasonName = seasonLabel(state.season);
-    api.background.set("fill", am5.color(dark ? 0x121820 : 0xe8f1fb));
+    const sea = dark ? SEA.dark : SEA.light;
+    const land = dark ? LAND.dark : LAND.light;
+    const line = dark ? LINE.dark : LINE.light;
+    api.background.set("fill", am5.color(sea));
+    if (local) {
+      const query = state.filters.query.trim().toLowerCase();
+      const us = COUNTRY_BY_ISO.get("US");
+      const usRating = us ? scoreOf(us.id, "overall") : null;
+      const ctFill = us && passed.has(us.id) && usRating !== null ? ratingColor(usRating, dark) : land;
+      api.states.set("visible", false);
+      api.counties.set("visible", true);
+      api.polygons.mapPolygons.each((polygon) => {
+        polygon.set("interactive", true);
+        const ctx = polygon.dataItem?.dataContext as { id?: string; name?: string } | undefined;
+        const country = ctx?.id ? COUNTRY_BY_ISO.get(ctx.id) : undefined;
+        const on = Boolean(country && passed.has(country.id));
+        const rating = country ? scoreOf(country.id, "overall") : null;
+        polygon.set("fill", am5.color(on && rating !== null ? ratingColor(rating, dark) : land));
+        polygon.set("stroke", am5.color(line));
+        polygon.set("strokeWidth", 0.6);
+        polygon.set("tooltipText", ctx?.name ?? "");
+      });
+      api.counties.mapPolygons.each((polygon) => {
+        polygon.set("fill", am5.color(ctFill));
+        polygon.set("stroke", am5.color(usRating !== null && us && passed.has(us.id) ? (dark ? 0xd6e4f8 : 0xffffff) : line));
+        polygon.set("strokeWidth", 1);
+      });
+      const spots: PointDatum[] = [];
+      for (const pin of state.pins) {
+        const place = pinAsPlace(pin);
+        const hay = `${place.name} ${place.region} ${place.blurb}`.toLowerCase();
+        if (query && !hay.includes(query)) continue;
+        const on = place.id === state.selectedId;
+        spots.push({
+          latitude: place.lat,
+          longitude: place.lng,
+          placeId: place.id,
+          tooltip: `${place.name}\n${place.region}`,
+          radius: on ? 9 : 6.5,
+          fill: ICON_FILL.landmark,
+          icon: "landmark",
+          label: on ? place.name : undefined,
+        });
+      }
+      if (state.draftPin) {
+        spots.push({
+          latitude: state.draftPin.lat,
+          longitude: state.draftPin.lng,
+          placeId: "",
+          tooltip: "New retreat",
+          radius: 8,
+          fill: 0xd9822b,
+        });
+      }
+      const friendDots: PointDatum[] = [];
+      if (state.showFriends) {
+        const stacks = new Map<string, number>();
+        for (const person of friends) {
+          for (const trip of person.trips) {
+            if (trip.season !== state.season) continue;
+            const place = lookupPlace(trip.placeId);
+            if (!place?.tags.includes("retreat")) continue;
+            const index = stacks.get(place.id) ?? 0;
+            stacks.set(place.id, index + 1);
+            friendDots.push({
+              latitude: place.lat + index * 0.01,
+              longitude: place.lng + 0.012,
+              placeId: place.id,
+              tooltip: `${person.name}\n${place.name}`,
+              radius: 6,
+              fill: 0xe39b12,
+            });
+          }
+        }
+      }
+      api.spots.data.setAll(spots);
+      api.pals.data.setAll(friendDots);
+      return;
+    }
+    api.counties.set("visible", false);
     if (abroad) {
       const term = state.abroadTerm;
       const allReviews = reviews.get().reviews;
@@ -96,6 +192,7 @@ export function MapView() {
         const progs = ctx?.id ? programsIn(ctx.id, term) : [];
         const n = progs.length;
         const isSelected = Boolean(ctx?.id && ctx.id === state.abroadIso);
+        polygon.set("interactive", true);
         // Shaded by the average overall rating of that country's programs this term.
         const ids = new Set(progs.map((p) => p.id));
         const vals = allReviews
@@ -104,10 +201,10 @@ export function MapView() {
         const rating = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
         polygon.set(
           "fill",
-          am5.color(rating !== null ? ratingColor(rating, dark) : n ? (dark ? 0x333a44 : 0xe3e7ed) : dark ? 0x2a2a2a : 0xf3f3f3),
+          am5.color(rating !== null ? ratingColor(rating, dark) : n ? (dark ? PROGRAM_LAND.dark : PROGRAM_LAND.light) : land),
         );
-        polygon.set("stroke", am5.color(isSelected ? (dark ? 0xffffff : 0x141414) : dark ? 0x1a1a1a : 0xffffff));
-        polygon.set("strokeWidth", isSelected ? 1.8 : 0.55);
+        polygon.set("stroke", am5.color(isSelected ? (dark ? 0xffffff : 0x141414) : line));
+        polygon.set("strokeWidth", isSelected ? 1.8 : 0.7);
         polygon.set(
           "tooltipText",
           n
@@ -141,11 +238,12 @@ export function MapView() {
       const count = country ? visitCount(country, state.season) : 0;
       const on = Boolean(country && passed.has(country.id));
       const isSelected = country?.id === state.selectedId;
-      // Countries are shaded by their overall rating (the country plus its cities); unrated stays gray.
+      polygon.set("interactive", true);
+      // Countries are shaded by their overall rating (the country plus its cities); unrated stays warm paper.
       const rating = country ? scoreOf(country.id, "overall") : null;
-      polygon.set("fill", am5.color(on && rating !== null ? ratingColor(rating, dark) : dark ? 0x2a2a2a : 0xf3f3f3));
-      polygon.set("stroke", am5.color(isSelected ? (dark ? 0xffffff : 0x141414) : dark ? 0x1a1a1a : 0xffffff));
-      polygon.set("strokeWidth", isSelected ? 1.8 : 0.55);
+      polygon.set("fill", am5.color(on && rating !== null ? ratingColor(rating, dark) : land));
+      polygon.set("stroke", am5.color(isSelected ? (dark ? 0xffffff : 0x141414) : line));
+      polygon.set("strokeWidth", isSelected ? 1.8 : 0.7);
       polygon.set(
         "tooltipText",
         on && country
@@ -198,13 +296,25 @@ export function MapView() {
         fill: 0x0b3d91,
       });
     }
+    if (selected?.tags.includes("retreat")) {
+      spots.push({
+        latitude: selected.lat,
+        longitude: selected.lng,
+        placeId: selected.id,
+        tooltip: `${selected.name}\n${selected.region}`,
+        radius: 9,
+        fill: ICON_FILL.landmark,
+        icon: "landmark",
+        label: selected.name,
+      });
+    }
     const friendDots: PointDatum[] = [];
     if (state.showFriends) {
       const stacks = new Map<string, number>();
       for (const person of friends) {
         for (const trip of person.trips) {
           if (trip.season !== state.season) continue;
-          const place = PLACE_BY_ID.get(trip.placeId);
+          const place = lookupPlace(trip.placeId);
           if (!place) continue;
           const index = stacks.get(place.id) ?? 0;
           stacks.set(place.id, index + 1);
@@ -227,25 +337,62 @@ export function MapView() {
     const api = apiRef.current;
     if (!api?.ready) return;
     const token = (zoomToken.current += 1);
+    const mode = state.mapMode;
+    const from = prevModeRef.current;
+    const homeChanged = state.homeTick !== prevHomeRef.current;
     api.chart.set("paddingRight", panelOpen ? 430 : 20);
     // Padding changes the plot size on the next frame. Zoom after that so a
     // small country lands in the map beside the panel, not underneath it.
     requestAnimationFrame(() => {
       if (token !== zoomToken.current || !apiRef.current?.ready) return;
+      prevModeRef.current = mode;
+      prevHomeRef.current = state.homeTick;
       const chart = api.chart;
-      if (abroad) {
+      const localMode = mode === "local";
+      // rotateX brings the other hemisphere in when you drag or scroll past the edge.
+      chart.set("panX", localMode ? "translateX" : "rotateX");
+      chart.set("wheelX", localMode ? "none" : "rotateX");
+      chart.set("wheelSensitivity", 0.7);
+      const leftLocal = from === "local" && !localMode;
+      if (localMode) {
+        const retreat = selected?.tags.includes("retreat") ? selected : undefined;
+        const point = retreat ?? (state.draftPin ? { lng: state.draftPin.lng, lat: state.draftPin.lat } : undefined);
+        if (point) {
+          focusedRef.current = true;
+          const span = 0.12;
+          chart.zoomToGeoBounds({ left: point.lng - span, right: point.lng + span, top: point.lat + span, bottom: point.lat - span }, 450);
+        } else {
+          const animate = focusedRef.current || from !== "local" || homeChanged;
+          chart.zoomToGeoBounds(CT_BOUNDS, animate ? 450 : 0);
+          focusedRef.current = false;
+        }
+        return;
+      }
+      if (mode === "abroad") {
         const item = state.abroadIso ? polygonItem(api.polygons, state.abroadIso) : undefined;
-        if (item) api.polygons.zoomToDataItem(item);
-        else if (state.homeTick > 0 || !state.abroadIso) chart.goHome(400);
+        if (item) {
+          focusedRef.current = true;
+          api.polygons.zoomToDataItem(item);
+          return;
+        }
+        if (focusedRef.current || leftLocal || homeChanged) chart.goHome(400);
+        focusedRef.current = false;
         return;
       }
       if (state.emptyGeo) {
+        focusedRef.current = true;
         const item = polygonItem(api.polygons, state.emptyGeo.iso);
         if (item) api.polygons.zoomToDataItem(item);
         return;
       }
       if (!selected) {
-        if (state.homeTick > 0) chart.goHome(400);
+        if (focusedRef.current || leftLocal || homeChanged) chart.goHome(400);
+        focusedRef.current = false;
+        return;
+      }
+      focusedRef.current = true;
+      if (selected.tags.includes("retreat")) {
+        chart.zoomToGeoPoint({ longitude: selected.lng, latitude: selected.lat }, 10, true, 450);
         return;
       }
       if (selected.kind === "country" && selected.iso === "US") {
@@ -273,18 +420,20 @@ export function MapView() {
     const chart = root.container.children.push(
       am5map.MapChart.new(root, {
         projection: am5map.geoMercator(),
-        panX: "translateX",
+        panX: "rotateX",
         panY: "translateY",
+        wheelX: "rotateX",
         wheelY: "zoom",
+        wheelSensitivity: 0.7,
         pinchZoom: true,
         zoomStep: 1.08,
-        maxZoomLevel: 40,
+        maxZoomLevel: 800,
         minZoomLevel: 1,
         homeGeoPoint: { longitude: -18, latitude: 18 },
         homeZoomLevel: 1,
       }),
     );
-    const background = am5.Rectangle.new(root, { fill: am5.color(0xe8f1fb), fillOpacity: 1 });
+    const background = am5.Rectangle.new(root, { fill: am5.color(SEA.light), fillOpacity: 1, interactive: true });
     chart.set("background", background);
     chart.set("zoomControl", am5map.ZoomControl.new(root, { x: 12, centerX: 0, y: 12, centerY: 0 }));
 
@@ -297,14 +446,33 @@ export function MapView() {
     polygons.mapPolygons.template.setAll({
       interactive: true,
       cursorOverStyle: "pointer",
-      fill: am5.color(0xf3f3f3),
-      stroke: am5.color(0xffffff),
-      strokeWidth: 0.55,
+      fill: am5.color(LAND.light),
+      stroke: am5.color(LINE.light),
+      strokeWidth: 0.7,
       tooltipText: "{name}",
     });
     polygons.mapPolygons.template.states.create("hover", { fillOpacity: 0.86 });
+    const geoAt = (point: { x: number; y: number }) => chart.invert(chart.seriesContainer.toLocal(point));
+    const dropOrDismiss = (point: { x: number; y: number }) => {
+      if (Date.now() - pointGuard.current < 120) return;
+      if (modeRef.current === "local" && placingRef.current) {
+        const geo = geoAt(point);
+        dispatch({ type: "placePin", lat: geo.latitude, lng: geo.longitude });
+        return;
+      }
+      if (!openRef.current) return;
+      if (modeRef.current === "abroad") dispatch({ type: "selectAbroad", iso: null });
+      else dispatch({ type: "select", id: null });
+    };
     polygons.mapPolygons.template.events.on("click", (event) => {
-      if (Date.now() - pointGuard.current < 50) return;
+      pointGuard.current = Date.now();
+      if (modeRef.current === "local") {
+        if (placingRef.current) {
+          const geo = geoAt(event.point);
+          dispatch({ type: "placePin", lat: geo.latitude, lng: geo.longitude });
+        } else if (openRef.current) dispatch({ type: "select", id: null });
+        return;
+      }
       const ctx = event.target.dataItem?.dataContext as { id?: string; name?: string } | undefined;
       if (!ctx?.id) return;
       if (modeRef.current === "abroad") {
@@ -315,10 +483,31 @@ export function MapView() {
       if (country) dispatch({ type: "select", id: country.id });
       else dispatch({ type: "selectEmpty", iso: ctx.id, name: ctx.name ?? ctx.id });
     });
+    background.events.on("click", (event) => dropOrDismiss(event.point));
 
     // U.S. state borders, shown when you're looking at the United States.
     const states = chart.series.push(am5map.MapPolygonSeries.new(root, { geoJSON: usaLow, visible: false }));
     states.mapPolygons.template.setAll({ interactive: false, fillOpacity: 0, stroke: am5.color(0x9aa7b8), strokeWidth: 0.6, strokeOpacity: 0.9 });
+
+    const counties = chart.series.push(am5map.MapPolygonSeries.new(root, { geoJSON: ctHigh, visible: false }));
+    counties.mapPolygons.template.setAll({
+      interactive: true,
+      cursorOverStyle: "pointer",
+      fill: am5.color(LAND.light),
+      stroke: am5.color(LINE.light),
+      strokeWidth: 1,
+      tooltipText: "{name} County",
+    });
+    counties.mapPolygons.template.events.on("click", (event) => {
+      pointGuard.current = Date.now();
+      if (modeRef.current !== "local") return;
+      if (placingRef.current) {
+        const geo = geoAt(event.point);
+        dispatch({ type: "placePin", lat: geo.latitude, lng: geo.longitude });
+        return;
+      }
+      if (openRef.current) dispatch({ type: "select", id: null });
+    });
 
     const spots = chart.series.push(am5map.MapPointSeries.new(root, { latitudeField: "latitude", longitudeField: "longitude" }));
     const pals = chart.series.push(am5map.MapPointSeries.new(root, { latitudeField: "latitude", longitudeField: "longitude" }));
@@ -375,7 +564,7 @@ export function MapView() {
     attach(spots);
     attach(pals);
 
-    const api: Api = { root, chart, polygons, spots, pals, states, background, ready: false, seen: new Set() };
+    const api: Api = { root, chart, polygons, spots, pals, states, counties, background, ready: false, seen: new Set() };
     apiRef.current = api;
     polygons.events.on("datavalidated", () => {
       const seen = new Set<string>();
@@ -397,11 +586,11 @@ export function MapView() {
 
   useEffect(() => {
     paintRef.current();
-  }, [state.theme, state.season, state.filters, state.showFriends, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, passed, friends, maxCountry, plansVersion, reviewsVersion]);
+  }, [state.theme, state.season, state.filters, state.showFriends, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, state.pins, state.draftPin, passed, friends, maxCountry, plansVersion, reviewsVersion]);
 
   useEffect(() => {
     zoomRef.current();
-  }, [state.selectedId, state.emptyGeo, state.homeTick, state.mapMode, state.abroadIso, panelOpen, selected]);
+  }, [state.selectedId, state.emptyGeo, state.homeTick, state.mapMode, state.abroadIso, state.draftPin, panelOpen, selected]);
 
   return <div className="map" ref={hostRef} />;
 }
