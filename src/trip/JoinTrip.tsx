@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PLACE_BY_ID } from "../data";
+import { lookupPlace } from "../data";
 import { account, useAccount, useMe } from "../account/account";
 import { formatRange } from "../logic";
 import { reviews as reviewApi } from "../reviews/store";
@@ -34,7 +34,7 @@ export function JoinTrip() {
   }, []);
 
   if (!invite) return null;
-  const place = PLACE_BY_ID.get(invite.p);
+  const place = lookupPlace(invite.p);
   if (!place) return null;
   const fromSelf = me.signedIn && invite.i === me.id;
   const already = state.trips.find((t) => t.placeId === invite.p && t.start === invite.a);

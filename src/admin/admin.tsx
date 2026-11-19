@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../reviews/backend";
 import { reviews as reviewApi, useReviewStore } from "../reviews/store";
-import { PLACE_BY_ID } from "../data";
+import { lookupPlace } from "../data";
 import { PROGRAM_BY_ID } from "../abroad/data";
 import { useTripTable } from "../store";
 import "./admin.css";
@@ -132,7 +132,7 @@ type Report = {
 type Feedback = { id: string; kind: string; body: string; page: string | null; resolved: boolean; created_at: string };
 
 function targetName(type: string, id: string): string {
-  return type === "program" ? (PROGRAM_BY_ID.get(id)?.name ?? id) : (PLACE_BY_ID.get(id)?.name ?? id);
+  return type === "program" ? (PROGRAM_BY_ID.get(id)?.name ?? id) : (lookupPlace(id)?.name ?? id);
 }
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 

@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PlanCard } from "./trip/PlanCard";
 import { TripDetail, countdownLabel, leaveByLine } from "./trip/TripDetail";
 import { checklistFor } from "./trip/tripLogic";
-import { PLACE_BY_ID, PLACES } from "./data";
+import { lookupPlace, PLACES } from "./data";
 import { account, displayName, useAccount, useMe } from "./account/account";
 import { SignInBox } from "./reviews/ReviewSection";
 import {
@@ -13,14 +13,18 @@ import {
   formatMoney,
   formatRange,
   friendsAtPlace,
+  passesFilters,
   ratingBand,
   scoreOf,
   ratingCount,
   seasonLabel,
+  sortScore,
   travelGuidance,
   visitCount,
   SEASONS,
 } from "./logic";
+import { ABROAD_CITIES, offeredIn, REGIONS } from "./abroad/data";
+import { locateInConnecticut, pinAsPlace } from "./local/connecticut";
 import { DEFAULT_FILTERS, useCatalog, useFriends, useTripTable } from "./store";
 import type { Place, Season, SortKey } from "./types";
 import { ReviewSection } from "./reviews/ReviewSection";
@@ -108,6 +112,157 @@ function activeCount(f: typeof DEFAULT_FILTERS): number {
 }
 
 export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void }) {
+  const { state } = useTripTable();
+  if (state.view === "map" && state.mapMode === "abroad") return <AbroadRail open={open} onPick={onPick} />;
+  if (state.view === "map" && state.mapMode === "local") return <LocalRail open={open} onPick={onPick} />;
+  return <TravelRail open={open} onPick={onPick} />;
+}
+
+function AbroadRail({ open, onPick }: { open: boolean; onPick: () => void }) {
+  const { state, dispatch } = useTripTable();
+  const [region, setRegion] = useState<string | null>(null);
+  const term = state.abroadTerm;
+  const q = state.filters.query.trim().toLowerCase();
+  const countries = useMemo(() => {
+    const map = new Map<string, { iso: string; name: string; count: number; cities: string[] }>();
+    for (const city of ABROAD_CITIES) {
+      const matched = city.programs.filter((program) => {
+        if (!offeredIn(program, term)) return false;
+        if (region && program.region !== region) return false;
+        if (!q) return true;
+        return `${program.country} ${program.city} ${program.name} ${program.subject} ${program.language ?? ""}`.toLowerCase().includes(q);
+      });
+      if (!matched.length) continue;
+      const row = map.get(city.iso) ?? { iso: city.iso, name: matched[0].country, count: 0, cities: [] };
+      row.count += matched.length;
+      if (!row.cities.includes(city.city)) row.cities.push(city.city);
+      map.set(city.iso, row);
+    }
+    return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [term, region, q]);
+  return (
+    <aside className={open ? "rail open" : "rail"}>
+      <div className="rail-head">
+        <p className="lede">Yale programs for this term. Pick a country to see where they run.</p>
+        <div className="sort-row">
+          <span>
+            {countries.length} {countries.length === 1 ? "country" : "countries"}
+          </span>
+          <span>{term === "Summer" ? "Summer" : `${term} semester`}</span>
+        </div>
+      </div>
+      <details className="filters-drawer" open>
+        <summary>Region</summary>
+        <div className="filters">
+          <div className="choice-row">
+            {REGIONS.map((name) => (
+              <button key={name} type="button" className={region === name ? "on" : ""} onClick={() => setRegion(region === name ? null : name)}>
+                {name}
+              </button>
+            ))}
+          </div>
+          <button
+            className="textlink"
+            type="button"
+            disabled={!region && !state.filters.query}
+            onClick={() => {
+              setRegion(null);
+              dispatch({ type: "patchFilters", patch: { query: "" } });
+            }}
+          >
+            Reset filters
+          </button>
+        </div>
+      </details>
+      <div className="list" role="listbox" aria-label="Study abroad countries">
+        {countries.length === 0 ? <p className="empty">No programs match.</p> : null}
+        {countries.map((country) => (
+          <button
+            key={country.iso}
+            type="button"
+            role="option"
+            aria-selected={state.abroadIso === country.iso}
+            className={state.abroadIso === country.iso ? "row active" : "row"}
+            onClick={() => {
+              dispatch({ type: "selectAbroad", iso: country.iso });
+              onPick();
+            }}
+          >
+            <span className="row-name">{country.name}</span>
+            <span className="row-meta">
+              {country.count} {country.count === 1 ? "program" : "programs"} · {country.cities.slice(0, 3).join(", ")}
+            </span>
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function LocalRail({ open, onPick }: { open: boolean; onPick: () => void }) {
+  const { state, dispatch } = useTripTable();
+  const [area, setArea] = useState<string | null>(null);
+  const q = state.filters.query.trim().toLowerCase();
+  const areas = [...new Set(state.pins.map((pin) => pin.area))].sort((a, b) => a.localeCompare(b));
+  const pins = state.pins.filter((pin) => {
+    if (area && pin.area !== area) return false;
+    if (!q) return true;
+    return `${pin.name} ${pin.area} ${pin.note}`.toLowerCase().includes(q);
+  });
+  return (
+    <aside className={open ? "rail open" : "rail"}>
+      <div className="rail-head">
+        <p className="lede">Connecticut, close up. Drop a pin to log a club retreat. The list stays empty until someone saves one.</p>
+        <div className="sort-row">
+          <span>
+            {pins.length} {pins.length === 1 ? "retreat" : "retreats"}
+          </span>
+        </div>
+        <button className="feature" type="button" onClick={() => dispatch({ type: "startPlacing" })}>
+          {state.placingPin ? "Click the map" : "Log a retreat"}
+        </button>
+        {state.placingPin ? <p className="fine">Click the spot in Connecticut.</p> : null}
+      </div>
+      {areas.length ? (
+        <details className="filters-drawer" open>
+          <summary>County</summary>
+          <div className="filters">
+            <div className="choice-row">
+              {areas.map((name) => (
+                <button key={name} type="button" className={area === name ? "on" : ""} onClick={() => setArea(area === name ? null : name)}>
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </details>
+      ) : null}
+      <div className="list" role="listbox" aria-label="Logged retreats">
+        {pins.length === 0 ? <p className="empty">{state.pins.length === 0 ? "No retreats logged yet." : "Nothing matches."}</p> : null}
+        {pins.map((pin) => (
+          <button
+            key={pin.id}
+            type="button"
+            role="option"
+            aria-selected={state.selectedId === pin.id}
+            className={state.selectedId === pin.id ? "row active" : "row"}
+            onClick={() => {
+              dispatch({ type: "select", id: pin.id });
+              onPick();
+            }}
+          >
+            <span className="row-name">{pin.name}</span>
+            <span className="row-meta">
+              {pin.area} · {pin.lat.toFixed(3)}, {pin.lng.toFixed(3)}
+            </span>
+          </button>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function TravelRail({ open, onPick }: { open: boolean; onPick: () => void }) {
   const { state, dispatch } = useTripTable();
   const { rows } = useCatalog();
   const filters = state.filters;
@@ -221,7 +376,7 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
       <div className="list" role="listbox" aria-label="Places">
         {rows.length === 0 ? <p className="empty">Nothing clears these filters.</p> : null}
         {rows.map(({ place, count }) => {
-          const parent = place.parentId ? PLACE_BY_ID.get(place.parentId) : undefined;
+          const parent = place.parentId ? lookupPlace(place.parentId) : undefined;
           return (
             <button
               key={place.id}
@@ -252,6 +407,57 @@ export function FilterRail({ open, onPick }: { open: boolean; onPick: () => void
   );
 }
 
+export function PinDraftPanel() {
+  const { state, dispatch } = useTripTable();
+  const [name, setName] = useState("");
+  const [note, setNote] = useState("");
+  const draft = state.draftPin;
+  if (!draft) return null;
+  const area = locateInConnecticut(draft.lat, draft.lng) ?? "Connecticut";
+  return (
+    <aside className="panel" aria-labelledby="pin-title">
+      <div className="panel-scroll">
+        <div className="panel-head">
+          <div>
+            <p className="kicker">Club retreat · {area}</p>
+            <h2 id="pin-title">Log a retreat</h2>
+          </div>
+          <button className="icon-btn" type="button" aria-label="Cancel" onClick={() => dispatch({ type: "cancelPin" })}>
+            ×
+          </button>
+        </div>
+        <p className="fine">
+          {draft.lat.toFixed(4)}, {draft.lng.toFixed(4)}
+        </p>
+        <form
+          className="plan pin-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            dispatch({ type: "savePin", name, note });
+          }}
+        >
+          <label className="field-label" htmlFor="pin-name">
+            Name
+          </label>
+          <input id="pin-name" value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} autoFocus />
+          <label className="field-label" htmlFor="pin-note">
+            Note
+          </label>
+          <textarea id="pin-note" value={note} onChange={(event) => setNote(event.target.value)} maxLength={500} rows={4} placeholder="Optional" />
+          <div className="plan-actions">
+            <button className="primary" type="submit" disabled={!name.trim()}>
+              Save place
+            </button>
+            <button className="textlink" type="button" onClick={() => dispatch({ type: "cancelPin" })}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </aside>
+  );
+}
+
 export function PlacePanel({ place }: { place: Place }) {
   const { state, dispatch } = useTripTable();
   const friends = useFriends();
@@ -275,21 +481,26 @@ export function PlacePanel({ place }: { place: Place }) {
       reviewCount(b.id) - reviewCount(a.id) ||
       a.name.localeCompare(b.name),
   );
-  const parent = place.parentId ? PLACE_BY_ID.get(place.parentId) : undefined;
+  const parent = place.parentId ? lookupPlace(place.parentId) : undefined;
+  const retreat = place.tags.includes("retreat");
 
   return (
     <aside className="panel" aria-labelledby="place-title">
       <div className="panel-scroll">
         <div className="panel-head">
           <div>
-            {parent ? (
+            {retreat ? (
+              <button className="textlink back-link" type="button" onClick={() => dispatch({ type: "select", id: null })}>
+                ← Connecticut
+              </button>
+            ) : parent ? (
               <button className="textlink back-link" type="button" onClick={() => dispatch({ type: "select", id: parent.id })}>
                 ← {parent.name}
               </button>
             ) : null}
             <p className="kicker">
-              {place.kind === "country" ? "Country" : place.cat === "park" ? "National park / nature" : place.cat === "landmark" ? "Landmark / destination" : "City"} · {place.region}
-              {!passed.has(place.id) ? " · Hidden by filters" : ""}
+              {retreat ? `Club retreat · ${place.region}` : `${place.kind === "country" ? "Country" : place.cat === "park" ? "National park / nature" : place.cat === "landmark" ? "Landmark / destination" : "City"} · ${place.region}`}
+              {!retreat && !passed.has(place.id) ? " · Hidden by filters" : ""}
             </p>
             <h2 id="place-title">{place.name}</h2>
           </div>
@@ -297,19 +508,32 @@ export function PlacePanel({ place }: { place: Place }) {
             ×
           </button>
         </div>
-        <p className="blurb">{place.blurb}</p>
+        {place.blurb ? <p className="blurb">{place.blurb}</p> : null}
         <GuidanceNote iso={place.iso} />
         <PlanCard place={place} />
         <BucketButton kind="place" targetId={place.id} label={place.name} />
         <p className="fine">{continentsOf(place).join(" and ")}</p>
         <ul className="tags">
           {place.atlas ? <li className="tag atlas-tag">Micro</li> : null}
-          {place.tags.map((tag) => (
-            <li key={tag} className="tag">
-              {tag}
-            </li>
-          ))}
+          {place.tags
+            .filter((tag) => tag !== "retreat")
+            .map((tag) => (
+              <li key={tag} className="tag">
+                {tag}
+              </li>
+            ))}
         </ul>
+        {retreat ? (
+          <button
+            className="textlink danger"
+            type="button"
+            onClick={() => {
+              if (window.confirm(`Remove ${place.name}? Trips to it will be removed too.`)) dispatch({ type: "removePin", id: place.id });
+            }}
+          >
+            Remove this place
+          </button>
+        ) : null}
         <div className="scoregrid">
           {(
             [
@@ -530,9 +754,120 @@ export function CatalogView() {
   const { state, dispatch } = useTripTable();
   const { rows } = useCatalog();
   const [adding, setAdding] = useState<Place | null>(null);
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const groups = useMemo(() => {
+    const direction = state.sortDir === "asc" ? 1 : -1;
+    const compare = (a: { place: Place; count: number }, b: { place: Place; count: number }) => {
+      const primary = state.sort === "yalies" ? a.count - b.count : sortScore(a.place.id, state.sort) - sortScore(b.place.id, state.sort);
+      if (primary !== 0) return primary * direction;
+      return a.place.name.localeCompare(b.place.name);
+    };
+    const byId = new Map<string, { place: Place; count: number }>();
+    const children = new Map<string, { place: Place; count: number }[]>();
+    for (const row of rows) {
+      if (row.place.kind === "country") byId.set(row.place.id, row);
+      else if (row.place.parentId) children.set(row.place.parentId, [...(children.get(row.place.parentId) ?? []), row]);
+    }
+    for (const pin of state.pins) {
+      const place = pinAsPlace(pin);
+      const count = visitCount(place, state.season);
+      if (!passesFilters(place, count, state.filters) || !place.parentId) continue;
+      children.set(place.parentId, [...(children.get(place.parentId) ?? []), { place, count }]);
+    }
+    return [...new Set([...byId.keys(), ...children.keys()])]
+      .map((id) => {
+        const country = lookupPlace(id);
+        if (!country) return null;
+        const row = byId.get(id) ?? { place: country, count: visitCount(country, state.season) };
+        return { row, children: (children.get(id) ?? []).slice().sort(compare) };
+      })
+      .filter((group): group is { row: { place: Place; count: number }; children: { place: Place; count: number }[] } => group !== null)
+      .sort((a, b) => compare(a.row, b.row));
+  }, [rows, state.pins, state.season, state.sort, state.sortDir, state.filters]);
+
+  useEffect(() => {
+    if (!state.filters.query.trim()) return;
+    setOpenIds(new Set(groups.filter((group) => group.children.length > 0).map((group) => group.row.place.id)));
+  }, [state.filters.query, groups]);
+
+  function toggle(id: string) {
+    setOpenIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function renderRow(place: Place, count: number, nested: boolean, childCount: number) {
+    const guidance = travelGuidance(place.iso);
+    const open = openIds.has(place.id);
+    return (
+      <tr key={place.id} className={`${state.selectedId === place.id ? "active" : ""} ${nested ? "catalog-child" : ""}`} onClick={() => dispatch({ type: "select", id: place.id })}>
+        <td>
+          <div className="catalog-place">
+            {nested || childCount === 0 ? (
+              <span className="catalog-expand spacer" aria-hidden="true" />
+            ) : (
+              <button
+                type="button"
+                className="catalog-expand"
+                aria-expanded={open}
+                aria-label={`${open ? "Hide" : "Show"} places in ${place.name}`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  toggle(place.id);
+                }}
+              >
+                {open ? "▾" : "▸"}
+              </button>
+            )}
+            <div>
+              <strong>{place.name}</strong>
+              <span className="fine">
+                {place.tags.includes("retreat")
+                  ? `${place.region} · Retreat`
+                  : `${continentsOf(place).join(" · ")} · ${place.kind === "country" ? (childCount ? `${childCount} inside` : "Country") : "Spot"}`}
+              </span>
+            </div>
+          </div>
+        </td>
+        <td className="num">
+          <span className={`rate ${yalieBand(count)}`}>{count.toLocaleString("en-US")}</span>
+        </td>
+        <td className="num">
+          <Rating value={scoreOf(place.id, "overall")} />
+        </td>
+        <td className="num">
+          <Rating value={scoreOf(place.id, "affordability")} />
+        </td>
+        <td className="num">
+          <Rating value={scoreOf(place.id, "safety")} />
+        </td>
+        <td className="num">
+          <Rating value={scoreOf(place.id, "beauty")} />
+        </td>
+        <td>{guidance.level === "blocked" ? "Not sponsored" : guidance.level === "regional" ? "Partial ban" : "Safe to travel"}</td>
+        <td>
+          <button
+            className="plus"
+            type="button"
+            aria-label={`Add ${place.name} to itinerary`}
+            onClick={(event) => {
+              event.stopPropagation();
+              setAdding(place);
+            }}
+          >
+            +
+          </button>
+        </td>
+      </tr>
+    );
+  }
+
   return (
     <div className="catalog">
-      {rows.length === 0 ? <p className="empty">Nothing clears these filters.</p> : null}
+      {groups.length === 0 ? <p className="empty">Nothing clears these filters.</p> : null}
       <table className="catalog-table">
         <thead>
           <tr>
@@ -547,47 +882,10 @@ export function CatalogView() {
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ place, count }) => {
-            const guidance = travelGuidance(place.iso);
-            return (
-              <tr key={place.id} className={state.selectedId === place.id ? "active" : ""} onClick={() => dispatch({ type: "select", id: place.id })}>
-                <td>
-                  <strong>{place.name}</strong>
-                  <span className="fine">
-                    {continentsOf(place).join(" · ")} · {place.kind === "country" ? "Country" : "Spot"}
-                  </span>
-                </td>
-                <td className="num">
-                  <span className={`rate ${yalieBand(count)}`}>{count.toLocaleString("en-US")}</span>
-                </td>
-                <td className="num">
-                  <Rating value={scoreOf(place.id, "overall")} />
-                </td>
-                <td className="num">
-                  <Rating value={scoreOf(place.id, "affordability")} />
-                </td>
-                <td className="num">
-                  <Rating value={scoreOf(place.id, "safety")} />
-                </td>
-                <td className="num">
-                  <Rating value={scoreOf(place.id, "beauty")} />
-                </td>
-                <td>{guidance.level === "blocked" ? "Not sponsored" : guidance.level === "regional" ? "Partial ban" : "Safe to travel"}</td>
-                <td>
-                  <button
-                    className="plus"
-                    type="button"
-                    aria-label={`Add ${place.name} to itinerary`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setAdding(place);
-                    }}
-                  >
-                    +
-                  </button>
-                </td>
-              </tr>
-            );
+          {groups.flatMap((group) => {
+            const open = openIds.has(group.row.place.id);
+            const parent = renderRow(group.row.place, group.row.count, false, group.children.length);
+            return open ? [parent, ...group.children.map((child) => renderRow(child.place, child.count, true, 0))] : [parent];
           })}
         </tbody>
       </table>
@@ -757,7 +1055,7 @@ export function FriendsView() {
             {active.trips.length === 0 ? <p className="empty">{active.name.split(" ")[0]} hasn't saved any trips yet.</p> : null}
             <ul className="trip-list">
               {active.trips.map((trip) => {
-                const place = PLACE_BY_ID.get(trip.placeId);
+                const place = lookupPlace(trip.placeId);
                 if (!place) return null;
                 return (
                   <li key={`${trip.placeId}-${trip.start}`}>
@@ -844,7 +1142,7 @@ export function ItineraryView() {
       ) : null}
       <ul className="cards">
         {upcoming.map((trip) => {
-          const place = PLACE_BY_ID.get(trip.placeId);
+          const place = lookupPlace(trip.placeId);
           if (!place) return null;
           const names = trip.friendNetids
             .map((id) => friends.find((person) => person.netid === id)?.name)

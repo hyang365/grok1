@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { PLACE_BY_ID } from "../data";
+import { lookupPlace } from "../data";
 import { useAccount, useMe } from "../account/account";
 import { estimate } from "../budget";
 import { flightStatus, googleFlights, resolveDestination, GATEWAYS } from "../flights/engine";
@@ -48,7 +48,7 @@ const toMins = (t: string) => Number(t.split(":")[0]) * 60 + Number(t.split(":")
 
 export function TripDetail({ trip }: { trip: Trip }) {
   const { dispatch } = useTripTable();
-  const place = PLACE_BY_ID.get(trip.placeId);
+  const place = lookupPlace(trip.placeId);
   const friends = useFriends();
   const me = useMe();
   const { requests } = useAccount();
@@ -69,7 +69,7 @@ export function TripDetail({ trip }: { trip: Trip }) {
     (f) =>
       !trip.friendNetids.includes(f.netid) &&
       f.trips.some((t) => {
-        const p = PLACE_BY_ID.get(t.placeId);
+        const p = lookupPlace(t.placeId);
         const same = t.placeId === trip.placeId || p?.parentId === trip.placeId || place.parentId === t.placeId;
         return same && parseISODate(t.start) <= parseISODate(trip.end) && parseISODate(t.end) >= parseISODate(trip.start);
       }),

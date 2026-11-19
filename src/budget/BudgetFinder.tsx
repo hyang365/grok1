@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { PLACE_BY_ID, PLACES } from "../data";
+import { lookupPlace, PLACES } from "../data";
 import { estimate, type Estimate } from "../budget";
 import { CONTINENTS, FEATURES, averageTempC, continentsOf, formatMoney, scoreOf, seasonLabel, travelGuidance, visitCount } from "../logic";
 import { useReviewStore } from "../reviews/store";
@@ -199,7 +199,7 @@ export function BudgetFinder({ onClose }: { onClose: () => void }) {
 
 function PickCard({ pick, budget, onOpen }: { pick: Pick; budget: number; onOpen: (p: Place) => void }) {
   const { place, est, why } = pick;
-  const parent = place.parentId ? PLACE_BY_ID.get(place.parentId) : undefined;
+  const parent = place.parentId ? lookupPlace(place.parentId) : undefined;
   const diff = budget - est.total;
   return (
     <li className="bf-card">

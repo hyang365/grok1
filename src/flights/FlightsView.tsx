@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PLACE_BY_ID, PLACES } from "../data";
+import { lookupPlace, PLACES } from "../data";
 import { account } from "../account/account";
 
 const SELF = "me";
@@ -145,7 +145,7 @@ export function FlightsView() {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
-  const place: Place | null = (fs.destId ? PLACE_BY_ID.get(fs.destId) : null) ?? (state.trips[0] ? PLACE_BY_ID.get(state.trips[0].placeId) ?? null : null);
+  const place: Place | null = (fs.destId ? lookupPlace(fs.destId) : null) ?? (state.trips[0] ? lookupPlace(state.trips[0].placeId) ?? null : null);
 
   const [out, back] = useMemo<[string, string]>(() => {
     if (fs.out && fs.back && daysBetween(todayISO(), fs.out) >= 1) return [fs.out, fs.back];
@@ -165,7 +165,7 @@ export function FlightsView() {
     return friends.flatMap((person) =>
       person.trips
         .filter((t) => {
-          const p = PLACE_BY_ID.get(t.placeId);
+          const p = lookupPlace(t.placeId);
           const same = t.placeId === place.id || p?.parentId === place.id || place.parentId === t.placeId;
           if (!same) return false;
           const [s, e] = rollForward(t.start, t.end);

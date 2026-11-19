@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { PLACE_BY_ID, PLACES } from "../data";
+import { lookupPlace, PLACE_BY_ID, PLACES } from "../data";
 import { account, useMe } from "../account/account";
 import { PROGRAMS } from "../abroad/data";
 import { flightStore, useFlights } from "../flights/flightStore";
@@ -94,7 +94,7 @@ function History({ past }: { past: Trip[] }) {
       {past.length === 0 && !adding ? <p className="empty">No past trips yet. Log one, or come back after your next break.</p> : null}
       <ul className="pf-list">
         {past.map((trip) => {
-          const place = PLACE_BY_ID.get(trip.placeId);
+          const place = lookupPlace(trip.placeId);
           if (!place) return null;
           const names = trip.friendNetids.map((id) => friends.find((f) => f.netid === id)?.name).filter(Boolean);
           return (
@@ -143,7 +143,7 @@ function LogTrip({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState("");
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q || PLACE_BY_ID.get(placeId)?.name === query) return [];
+    if (!q || lookupPlace(placeId)?.name === query) return [];
     return PLACES.filter((p) => p.id !== "us" && (p.name.toLowerCase().includes(q) || p.aliases.some((a) => a.includes(q)))).slice(0, 6);
   }, [query, placeId]);
 
@@ -277,7 +277,7 @@ function Bucket() {
       {items.length === 0 ? <p className="empty">Your bucket list is empty.</p> : null}
       <ul className="pf-list">
         {items.map((b) => {
-          const place = b.kind === "place" ? PLACE_BY_ID.get(b.targetId) : null;
+          const place = b.kind === "place" ? lookupPlace(b.targetId) : null;
           const program = b.kind === "program" ? PROGRAMS.find((p) => p.id === b.targetId) : null;
           const name = place?.name ?? program?.name;
           if (!name) return null;
@@ -342,7 +342,7 @@ function MyReviews() {
       {mine.length === 0 ? <p className="empty">You haven't written any reviews yet. Open a place or program you've been to and leave one.</p> : null}
       <ul className="pf-list">
         {mine.map((r) => {
-          const name = r.targetType === "place" ? PLACE_BY_ID.get(r.targetId)?.name : PROGRAMS.find((p) => p.id === r.targetId)?.name;
+          const name = r.targetType === "place" ? lookupPlace(r.targetId)?.name : PROGRAMS.find((p) => p.id === r.targetId)?.name;
           return (
             <li key={r.id}>
               <div>
