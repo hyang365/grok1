@@ -40,7 +40,7 @@ const LINE = { light: 0xd3c9bb, dark: 0x514e48 };
 const PROGRAM_LAND = { light: 0xd7e3f4, dark: 0x243044 };
 // Zoomed out, only these major tourism destinations get a dot.
 const MAJOR = new Set(
-  "nyc la sf miami nola chicago lasvegas dc honolulu grandcanyon yosemite orlando sanjuan cancun cdmx tulum rome florence venice amalfi paris nice barcelona madrid london edinburgh lisbon amsterdam berlin prague dubrovnik athens santorini istanbul reykjavik marrakech cairo tokyo kyoto seoul beijing shanghai greatwall bangkok phuket ubud hanoi sydney cartagena machupicchu toronto montreal vancouver banff nassau puntacana montegobay interlaken dublin lafortuna harvard".split(" "),
+  "nyc la sf miami nola chicago lasvegas dc honolulu grandcanyon yosemite orlando sanjuan cancun cdmx tulum rome florence venice amalfi paris nice barcelona madrid london edinburgh lisbon amsterdam berlin prague dubrovnik athens santorini istanbul reykjavik marrakech cairo tokyo kyoto seoul beijing shanghai greatwall bangkok phuket ubud hanoi sydney cartagena machupicchu toronto montreal vancouver banff nassau puntacana montegobay interlaken dublin lafortuna harvard petra siem-reap bora-bora queenstown havana cape-town male agra galapagos rio dubai iguazu-ar zanzibar".split(" "),
 );
 
 // Labeled on the U.S. map (others show their name on hover so the Northeast stays readable).

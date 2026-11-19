@@ -1,6 +1,7 @@
 import type { Place, Stay } from "./types";
 import { extraCatalog } from "./morePlaces";
 import { HARVARD } from "./fun/harvard";
+import { worldCatalog } from "./worldPlaces";
 import { SPOT_ROWS } from "./spots";
 
 
@@ -1269,6 +1270,7 @@ for (const extra of extraCatalog()) {
   if (PLACES.some((place) => place.id === extra.id)) continue;
   PLACES.push(extra);
 }
+PLACES.push(...worldCatalog(PLACES));
 PLACES.push(HARVARD);
 
 export const PLACE_BY_ID = new Map(PLACES.map((place) => [place.id, place]));
