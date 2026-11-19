@@ -426,7 +426,7 @@ export function PlacePanel({ place }: { place: Place }) {
             ×
           </button>
         </div>
-        {place.blurb ? <p className="blurb">{place.blurb}</p> : null}
+        {place.kind === "country" || !place.blurb ? null : <p className="blurb">{place.blurb}</p>}
         <GuidanceNote iso={place.iso} />
         <PlanCard place={place} />
         <BucketButton kind="place" targetId={place.id} label={place.name} />
@@ -504,11 +504,16 @@ export function PlacePanel({ place }: { place: Place }) {
           </details>
         ) : null}
         {place.atlas ? <p className="atlas">{place.atlas}</p> : null}
-        {place.guide.split("\n\n").map((paragraph) => (
-          <p key={paragraph} className="guide">
-            {paragraph}
-          </p>
-        ))}
+        {place.kind === "country"
+          ? null
+          : place.guide
+              .split("\n\n")
+              .filter((paragraph) => paragraph.trim())
+              .map((paragraph) => (
+                <p key={paragraph} className="guide">
+                  {paragraph}
+                </p>
+              ))}
         {friendHits.length > 0 ? (
           <ul className="friend-hits">
             {friendHits.map((hit) => (
@@ -746,7 +751,7 @@ export function CatalogView() {
         <td className="num">
           <Rating value={scoreOf(place.id, "beauty")} />
         </td>
-        <td>{guidance.level === "blocked" ? "Not sponsored" : guidance.level === "regional" ? "Partial ban" : "Safe to travel"}</td>
+        <td>{guidance.level === "blocked" ? "Travel ban" : guidance.level === "regional" ? "Partial ban" : "Safe to travel"}</td>
         <td>
           <button
             className="plus"
