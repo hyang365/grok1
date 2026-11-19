@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { assertData, lookupPlace } from "./data";
 import { seasonLabel } from "./logic";
 import { MapView } from "./MapView";
-import { CatalogView, EmptyPanel, FilterRail, FriendTripsPicker, FriendsView, ItineraryView, PlacePanel } from "./ui";
+import { CatalogView, EmptyPanel, FilterRail, FriendsBox, FriendsView, ItineraryView, PlacePanel } from "./ui";
 import { StoreProvider, useCatalog, useTripTable } from "./store";
 import { ABROAD_CITIES } from "./abroad/data";
 import { FlightsView } from "./flights/FlightsView";
@@ -265,7 +265,6 @@ function Shell() {
                     <span><i className="li landmark" />Landmark</span>
                   </div>
                 ) : null}
-                <FriendTripsPicker />
                 <div className="legend-total">
                   {total
                     ? `${total.toLocaleString("en-US")} ${total === 1 ? "student plan" : "student plans"} for ${seasonLabel(state.season)} ${seasonYear(state.season)}${state.filters.scope === "us" ? " in the U.S." : ""}`
@@ -277,6 +276,7 @@ function Shell() {
               <button className="filters-toggle" type="button" onClick={() => setRailOpen((open) => !open)}>
                 Filters
               </button>
+              {!abroadMap ? <FriendsBox /> : null}
             </div>
             {abroadMap ? (
               state.abroadIso ? <AbroadMapPanel iso={state.abroadIso} /> : null

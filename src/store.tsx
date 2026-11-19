@@ -51,8 +51,8 @@ export type State = {
   abroadIso: string | null;
   abroadProgramId: string | null;
   openTripId: string | null;
-  /** The one friend whose planned trips the map is showing (none by default; not saved). */
-  mapFriend: string | null;
+  /** Friends whose planned trips the map is showing (none by default; not saved). */
+  mapFriends: string[];
 };
 
 const SEASONS = new Set<Season>(["spring", "summer", "fall", "winter", "weekend"]);
@@ -85,7 +85,7 @@ function defaultState(): State {
     profileTab: "history",
     abroadIso: null,
     abroadProgramId: null,
-    mapFriend: null,
+    mapFriends: [],
   };
 }
 
@@ -220,7 +220,8 @@ export type Action =
   | { type: "openTrip"; id: string | null }
   | { type: "updateTrip"; id: string; patch: Partial<Trip>; message?: string }
   | { type: "openProgram"; id: string }
-  | { type: "setMapFriend"; netid: string | null };
+  | { type: "toggleMapFriend"; netid: string }
+  | { type: "clearMapFriends" };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -310,8 +311,13 @@ function reducer(state: State, action: Action): State {
       return applyRoute(state, action.route);
     case "selectAbroad":
       return { ...state, abroadIso: action.iso, selectedId: null, emptyGeo: null };
-    case "setMapFriend":
-      return { ...state, mapFriend: action.netid };
+    case "toggleMapFriend":
+      return {
+        ...state,
+        mapFriends: state.mapFriends.includes(action.netid) ? state.mapFriends.filter((id) => id !== action.netid) : [...state.mapFriends, action.netid],
+      };
+    case "clearMapFriends":
+      return { ...state, mapFriends: [] };
     case "openProgram":
       return { ...state, view: "abroad", abroadProgramId: action.id };
     case "reset":
@@ -336,7 +342,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state.theme]);
 
   useEffect(() => {
-    const { toast: _toast, emptyGeo: _empty, homeTick: _home, abroadIso: _abroad, mapFriend: _friend, ...persist } = state;
+    const { toast: _toast, emptyGeo: _empty, homeTick: _home, abroadIso: _abroad, mapFriends: _friends, ...persist } = state;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persist));
   }, [state]);
 

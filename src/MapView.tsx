@@ -5,7 +5,7 @@ import worldHigh from "@amcharts/amcharts5-geodata/worldGreatLakesHigh";
 import usaLow from "@amcharts/amcharts5-geodata/usaLow";
 import { useEffect, useRef } from "react";
 import { COUNTRY_BY_ISO, lookupPlace, PLACES } from "./data";
-import { formatRange, passesFilters, ratingColor, scoreOf, seasonLabel, upcomingTrips, visitCount } from "./logic";
+import { formatRange, friendColor, passesFilters, ratingColor, scoreOf, seasonLabel, upcomingTrips, visitCount } from "./logic";
 import { useCatalog, useFriends, useTripTable } from "./store";
 import { usePlans } from "./live/plans";
 import { summaryAvg, useReviewStore } from "./reviews/store";
@@ -259,11 +259,11 @@ export function MapView() {
       });
     }
 
-    // One friend at a time, picked in the map legend: every trip they have coming up, any season.
+    // Friends checked in the map's Friends box: every trip they have coming up, any season, one color each.
     const friendDots: PointDatum[] = [];
-    const person = state.mapFriend ? friends.find((f) => f.netid === state.mapFriend) : undefined;
-    if (person) {
-      const stacks = new Map<string, number>();
+    const stacks = new Map<string, number>();
+    for (const person of friends.filter((f) => state.mapFriends.includes(f.netid))) {
+      const color = friendColor(person.netid, friends);
       for (const trip of upcomingTrips(person)) {
         const place = lookupPlace(trip.placeId);
         if (!place) continue;
@@ -275,7 +275,7 @@ export function MapView() {
           placeId: place.id,
           tooltip: `${person.name}\n${place.name} · ${formatRange(trip.start, trip.end)}`,
           radius: 8,
-          fill: 0xe39b12,
+          fill: color,
         });
       }
     }
@@ -503,18 +503,22 @@ export function MapView() {
 
   useEffect(() => {
     paintRef.current();
-  }, [state.theme, state.season, state.filters, state.mapFriend, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, state.abroadFilters, passed, friends, maxCountry, plansVersion, reviewsVersion]);
+  }, [state.theme, state.season, state.filters, state.mapFriends, state.selectedId, state.mapMode, state.abroadIso, state.abroadTerm, state.abroadFilters, passed, friends, maxCountry, plansVersion, reviewsVersion]);
 
   useEffect(() => {
     zoomRef.current();
   }, [state.selectedId, state.emptyGeo, state.homeTick, state.mapMode, state.abroadIso, panelOpen, selected]);
 
-  // Picking a friend frames the map on their trips (unless you're looking at a place already).
+  // Checking friends frames the map on their trips (unless you're looking at a place already).
+  const friendKey = state.mapFriends.join(",");
   useEffect(() => {
     const api = apiRef.current;
-    if (!api?.ready || !state.mapFriend || state.selectedId || state.mapMode !== "travel") return;
-    const person = friends.find((f) => f.netid === state.mapFriend);
-    const spots = person ? upcomingTrips(person).map((t) => lookupPlace(t.placeId)).filter((p): p is NonNullable<typeof p> => Boolean(p)) : [];
+    if (!api?.ready || !friendKey || state.selectedId || state.mapMode !== "travel") return;
+    const spots = friends
+      .filter((f) => state.mapFriends.includes(f.netid))
+      .flatMap((f) => upcomingTrips(f))
+      .map((t) => lookupPlace(t.placeId))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p));
     if (!spots.length) return;
     const lats = spots.map((p) => p.lat);
     const lngs = spots.map((p) => p.lng);
@@ -523,8 +527,8 @@ export function MapView() {
       { left: Math.min(...lngs) - pad, right: Math.max(...lngs) + pad, top: Math.min(85, Math.max(...lats) + pad), bottom: Math.max(-60, Math.min(...lats) - pad) },
       500,
     );
-    // Only when the pick changes, not every time friends' data refreshes.
-  }, [state.mapFriend]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Only when the selection changes, not every time friends' data refreshes.
+  }, [friendKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return <div className="map" ref={hostRef} />;
 }

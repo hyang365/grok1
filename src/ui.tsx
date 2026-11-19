@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PlanCard } from "./trip/PlanCard";
 import { TripDetail, countdownLabel, leaveByLine } from "./trip/TripDetail";
 import { checklistFor } from "./trip/tripLogic";
@@ -19,6 +19,7 @@ import {
   ratingCount,
   seasonLabel,
   sortScore,
+  friendColor,
   travelGuidance,
   upcomingTrips,
   visitCount,
@@ -1191,53 +1192,91 @@ function InvitesSidebar() {
   );
 }
 
-/** Map legend control: pick one friend to see the trips they have planned. */
-export function FriendTripsPicker() {
+/** Top-right of the map: check friends to see the trips they have planned, plus a way to add more. */
+export function FriendsBox() {
   const { state, dispatch } = useTripTable();
   const me = useMe();
   const friends = useFriends();
-  const person = state.mapFriend ? friends.find((f) => f.netid === state.mapFriend) : undefined;
-  const trips = person ? upcomingTrips(person) : [];
+  const [open, setOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
   const sorted = [...friends].sort((a, b) => a.name.localeCompare(b.name));
+  const shown = sorted.filter((f) => state.mapFriends.includes(f.netid));
+  const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
+  const trips = shown
+    .flatMap((f) => upcomingTrips(f).map((t) => ({ f, t, place: lookupPlace(t.placeId) })))
+    .filter((x) => x.place)
+    .sort((a, b) => a.t.start.localeCompare(b.t.start));
+  const goAdd = () => {
+    setOpen(false);
+    dispatch({ type: "setView", view: "friends" });
+  };
   return (
-    <div className="friend-picker">
-      <label className="friend-picker-row">
-        <span className="legend-dot friend" aria-hidden="true" />
-        <span className="sr">Show a friend's trips</span>
-        <select
-          value={person ? person.netid : ""}
-          disabled={!me.signedIn || friends.length === 0}
-          onChange={(e) => dispatch({ type: "setMapFriend", netid: e.target.value || null })}
-          aria-label="Show a friend's planned trips"
-        >
-          <option value="">{!me.signedIn ? "Sign in to see friends' trips" : friends.length ? "Friends' trips: pick a friend" : "Add friends to see their trips"}</option>
-          {sorted.map((f) => (
-            <option key={f.netid} value={f.netid}>
-              {f.name} ({upcomingTrips(f).length})
-            </option>
-          ))}
-        </select>
-      </label>
-      {person ? (
-        trips.length ? (
-          <ul className="friend-trips">
-            {trips.slice(0, 6).map((t) => {
-              const place = lookupPlace(t.placeId);
-              if (!place) return null;
-              return (
-                <li key={`${t.placeId}-${t.start}`}>
-                  <button type="button" className="textlink" onClick={() => dispatch({ type: "select", id: place.id })}>
-                    {place.name}
-                  </button>
-                  <span className="fine">{formatRange(t.start, t.end)}</span>
+    <div className="friends-box" ref={boxRef}>
+      <button type="button" className="fb-toggle" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)}>
+        Friends' trips{shown.length ? ` · ${shown.length}` : ""} <span aria-hidden="true">▾</span>
+      </button>
+      {open ? (
+        <div className="fb-menu" role="group" aria-label="Show friends' trips on the map">
+          {!me.signedIn ? (
+            <p className="fine">Sign in with your Yale account to see where your friends are going.</p>
+          ) : sorted.length === 0 ? (
+            <p className="fine">No friends yet.</p>
+          ) : (
+            <ul className="fb-list">
+              {sorted.map((f) => (
+                <li key={f.netid}>
+                  <label>
+                    <input type="checkbox" checked={state.mapFriends.includes(f.netid)} onChange={() => dispatch({ type: "toggleMapFriend", netid: f.netid })} />
+                    <i className="fb-swatch" style={{ background: hex(friendColor(f.netid, friends)) }} aria-hidden="true" />
+                    <span>{f.name}</span>
+                  </label>
                 </li>
-              );
-            })}
-            {trips.length > 6 ? <li className="fine">+{trips.length - 6} more</li> : null}
-          </ul>
-        ) : (
-          <p className="fine friend-trips-empty">{person.name.split(" ")[0]} has no trips planned yet.</p>
-        )
+              ))}
+            </ul>
+          )}
+          {shown.length ? (
+            <button type="button" className="textlink fb-clear" onClick={() => dispatch({ type: "clearMapFriends" })}>
+              Clear all
+            </button>
+          ) : null}
+          <button type="button" className="fb-add" onClick={goAdd}>
+            + Add or invite friends
+          </button>
+        </div>
+      ) : shown.length ? (
+        <div className="fb-trips">
+          {trips.length ? (
+            <ul>
+              {trips.slice(0, 8).map(({ f, t, place }) => (
+                <li key={`${f.netid}-${t.placeId}-${t.start}`}>
+                  <i className="fb-swatch" style={{ background: hex(friendColor(f.netid, friends)) }} aria-hidden="true" />
+                  <button type="button" className="textlink" onClick={() => dispatch({ type: "select", id: place!.id })}>
+                    {place!.name}
+                  </button>
+                  <span className="fine">
+                    {f.name.split(" ")[0]} · {formatRange(t.start, t.end)}
+                  </span>
+                </li>
+              ))}
+              {trips.length > 8 ? <li className="fine">+{trips.length - 8} more</li> : null}
+            </ul>
+          ) : (
+            <p className="fine">No trips planned yet.</p>
+          )}
+        </div>
       ) : null}
     </div>
   );

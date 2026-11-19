@@ -765,13 +765,24 @@ details.inside-wrap .inside { margin-bottom: 8px; }
 .ab-shell { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .ab-shell > .ab-page { flex: 1; }
 .rail-select { width: 100%; height: 30px; margin-top: 4px; font-size: 13px; border: 1px solid var(--color-border-control); border-radius: 8px; background: var(--color-surface); color: var(--color-text); padding: 0 8px; }
-/* Map legend: one friend's trips at a time */
-.friend-picker { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--color-border); max-width: 230px; }
-.friend-picker-row { display: flex; align-items: center; gap: 6px; }
-.friend-picker select { flex: 1; min-width: 0; height: 26px; font-size: 12px; border: 1px solid var(--color-border-control); border-radius: 6px; background: var(--color-surface); color: var(--color-text); padding: 0 4px; }
-.friend-picker select:disabled { color: var(--color-text-tertiary); }
-.legend-dot.friend { width: 10px; height: 10px; border-radius: 50%; background: #e39b12; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); flex: none; }
-.friend-trips { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
-.friend-trips li { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.friend-trips .textlink { font-size: 12px; padding: 0; }
-.friend-trips-empty { margin: 6px 0 0; }
+/* Map, top right: friends' trips */
+.friends-box { position: relative; }
+.map-actions .fb-toggle { box-shadow: var(--shadow); font-weight: 600; }
+.fb-menu { position: absolute; top: calc(100% + 6px); right: 0; width: 240px; max-height: min(60vh, 420px); overflow: auto; padding: 10px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px; }
+.fb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.fb-list label { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.fb-list label:hover { background: var(--color-surface-hover); }
+.fb-swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); display: inline-block; }
+.fb-clear { align-self: flex-start; font-size: 12px; }
+.map-actions .fb-add { width: 100%; height: 32px; border: 1px dashed var(--color-border-control); border-radius: 8px; background: transparent; color: var(--color-primary); font-weight: 600; text-align: left; padding: 0 10px; }
+.fb-add:hover { background: var(--color-primary-subdued); }
+.fb-trips { position: absolute; top: calc(100% + 6px); right: 0; width: 260px; padding: 8px 10px; background: color-mix(in srgb, var(--color-surface) 94%, transparent); border: 1px solid var(--color-border); border-radius: 10px; box-shadow: var(--shadow); }
+.fb-trips ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.fb-trips li { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 6px; }
+.fb-trips li .fine { text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fb-trips .textlink { font-size: 12px; padding: 0; height: auto; border: 0; background: none; }
+.fb-trips p { margin: 0; }
+@media (max-width: 960px) {
+  .map-stage.panel-open .fb-menu, .map-stage.panel-open .fb-trips { top: auto; bottom: calc(100% + 6px); }
+}
+.friends-box .textlink { height: auto; border: 0; background: none; padding: 0; color: var(--color-primary); }

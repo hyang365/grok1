@@ -347,3 +347,11 @@ export function upcomingTrips(person: Person): PersonTrip[] {
   const today = new Date().toISOString().slice(0, 10);
   return person.trips.filter((t) => t.end >= today).sort((a, b) => a.start.localeCompare(b.start));
 }
+
+/** Map dot colors for friends' trips; each friend keeps one color (by their place in the A–Z list). */
+export const FRIEND_COLORS = [0xe39b12, 0xc2185b, 0x2e7d32, 0x6a1b9a, 0x00838f, 0xd84315, 0x5d4037, 0x1565c0];
+export function friendColor(netid: string, friends: Person[]): number {
+  const sorted = [...friends].sort((a, b) => a.name.localeCompare(b.name));
+  const i = Math.max(0, sorted.findIndex((f) => f.netid === netid));
+  return FRIEND_COLORS[i % FRIEND_COLORS.length];
+}
