@@ -459,15 +459,15 @@ export function PlacePanel({ place }: { place: Place }) {
             </div>
           ))}
         </div>
-        <p className="fine score-basis">
-          {place.id in FIXED_SCORES
-            ? "Permanently −5.0 on everything. Set by TripTable and it isn't changing, whatever the reviews below say."
-            : ratingCount(place.id)
-            ? `Based on ${ratingCount(place.id)} ${ratingCount(place.id) === 1 ? "rating" : "ratings"}${children.length ? ` of ${place.name} and its cities and destinations` : ""}.`
-            : children.length
-              ? `No reviews yet. Reviews of ${place.name} and its cities and destinations all count toward this rating.`
-              : "No reviews yet."}
-        </p>
+        {place.id in FIXED_SCORES ? null : (
+          <p className="fine score-basis">
+            {ratingCount(place.id)
+              ? `Based on ${ratingCount(place.id)} ${ratingCount(place.id) === 1 ? "rating" : "ratings"}${children.length ? ` of ${place.name} and its cities and destinations` : ""}.`
+              : children.length
+                ? `No reviews yet. Reviews of ${place.name} and its cities and destinations all count toward this rating.`
+                : "No reviews yet."}
+          </p>
+        )}
         <div className="stats">
           <div>
             <b>{planning.toLocaleString("en-US")}</b>
