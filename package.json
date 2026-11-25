@@ -12,7 +12,7 @@
     "@amcharts/amcharts5": "^5.13.5",
     "@amcharts/amcharts5-geodata": "^5.1.5",
     "@supabase/supabase-js": "^2.119.0",
-    "gtfs-realtime-bindings": "^1.1.1",
+    "gtfs-realtime-bindings": "^3.0.0",
     "leaflet": "^1.9.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
