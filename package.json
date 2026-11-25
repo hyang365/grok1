@@ -9,9 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@amcharts/amcharts5": "^5.13.5",
+    "@amcharts/amcharts5": "^5.23.0",
     "@amcharts/amcharts5-geodata": "^5.1.5",
-    "@supabase/supabase-js": "^2.119.0",
+    "@supabase/supabase-js": "^2.119.2",
     "gtfs-realtime-bindings": "^1.1.1",
     "leaflet": "^1.9.4",
     "react": "^19.1.1",
